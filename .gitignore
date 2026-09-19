@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+.env.local
+*.log
+backend/data/auth-session.json
+.DS_Store
+Thumbs.db
+.playwright-cli

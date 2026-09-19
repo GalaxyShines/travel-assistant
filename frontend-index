@@ -1,0 +1,230 @@
+# Frontend Project Index
+
+Generated: 2026-09-11
+Scope: `frontend/`
+
+This index is intended to help future AI/code work avoid repeatedly traversing the frontend tree.
+
+## Project Summary
+
+- App type: Vue 3 single-page application built with Vite.
+- UI library: Element Plus with `@element-plus/icons-vue`.
+- HTTP client: Axios.
+- Domain: travel planning map app with login, trips, places, routes, Baidu Map markers, route lines, and Baidu navigation links.
+- Main source entry: `frontend/src/main.js`
+- Main app component: `frontend/src/App.vue`
+- Map component: `frontend/src/components/MapView.vue`
+- Runtime config source: `frontend/app.config.json`, exposed to client by `frontend/vite.config.js` as `__APP_CONFIG__`.
+
+## Directory Tree
+
+```text
+frontend/
+├─ app.config.json
+├─ frontend-dev.err.log
+├─ frontend-dev.log
+├─ index.html
+├─ package.json
+├─ pnpm-lock.yaml
+├─ vite.config.js
+├─ public/
+├─ dist/
+│  ├─ index.html
+│  └─ assets/
+│     ├─ index-VDfCFW3e.css
+│     └─ index-BfNT5Vzc.js
+└─ src/
+   ├─ App.vue
+   ├─ config.js
+   ├─ main.js
+   ├─ styles.css
+   ├─ components/
+   │  └─ MapView.vue
+   ├─ services/
+   │  └─ api.js
+   └─ utils/
+      ├─ mapLoader.js
+      └─ navigation.js
+```
+
+## Source Files
+
+### `frontend/src/main.js`
+
+- Vue app bootstrap.
+- Imports Element Plus, Element Plus CSS, root `App.vue`, and global `styles.css`.
+- Mounts the app to `#app`.
+
+### `frontend/src/App.vue`
+
+- Root UI and most application state.
+- Shows password login when unauthenticated.
+- Authenticated layout includes:
+  - top bar with trip selector and trip create/edit/delete/logout actions;
+  - left panel for trip list, current trip, places, and routes;
+  - central `MapView`;
+  - right panel tabs for search, place editing, and route creation;
+  - Element Plus dialog for creating/editing trips.
+- Owns state for trips, places, routes, selected trip/place, search results, forms, tabs, and loading flags.
+- Calls API modules from `src/services/api.js`.
+- Calls Baidu navigation helpers from `src/utils/navigation.js`.
+- Registers `window.travelMapActions` so Baidu Map InfoWindow buttons can call back into Vue actions.
+- Key functions include:
+  - auth: `login`, `logout`, `resetWorkspaceState`;
+  - trips: `loadTrips`, `loadTripData`, `selectTrip`, `openTripDialog`, `saveTrip`, `deleteCurrentTrip`;
+  - places: `startManualPlace`, `handleMapClick`, `selectPlace`, `savePlace`, `deletePlace`, `deletePlaceById`;
+  - search: `searchBaiduPlaces`, `addSearchResult`;
+  - routes: `createRoute`, `autoGenerateRoutes`, `deleteRoute`, `deleteRouteById`, `navigateRoute`, `navigateFromPlace`.
+
+### `frontend/src/components/MapView.vue`
+
+- Baidu Map rendering and map interactions.
+- Props:
+  - `places`
+  - `routes`
+  - `selectedPlaceId`
+- Emits:
+  - `map-click`
+  - `place-selected`
+- Uses `loadBaiduMap` from `src/utils/mapLoader.js`.
+- Renders:
+  - Baidu map instance;
+  - place markers with optional subtitle/current labels;
+  - route polylines;
+  - InfoWindows for places and routes;
+  - error overlay when map cannot load.
+- Exposes methods to parent:
+  - `focusPlace(placeId)`
+  - `searchPlaces(keyword)`
+- Important implementation detail: InfoWindow HTML is manually escaped with `escapeHtml` because it is outside Vue template rendering.
+
+### `frontend/src/services/api.js`
+
+- Central Axios API client.
+- Uses `appConfig.apiBaseUrl`.
+- Stores auth token in `sessionStorage` under `travel-helper-auth-token`.
+- Adds `Authorization: Bearer <token>` on requests when present.
+- Handles `401` responses outside `/auth/login` by clearing token and invoking a registered unauthorized handler.
+- Exports:
+  - token helpers: `getAuthToken`, `setAuthToken`, `clearAuthToken`;
+  - handler helper: `setUnauthorizedHandler`;
+  - `authApi`: `login`, `validate`;
+  - `tripApi`: `list`, `create`, `update`, `remove`;
+  - `placeApi`: `list`, `create`, `update`, `remove`;
+  - `routeApi`: `list`, `create`, `update`, `remove`.
+
+### `frontend/src/utils/mapLoader.js`
+
+- Lazy-loads Baidu Map JS API when `window.BMap` is not already present.
+- Reuses a module-level `loadingPromise` to avoid duplicate script injection.
+- Detects an existing Baidu script tag and waits for `window.BMap`.
+- Rejects with user-facing Chinese error messages for missing AK, timeout, or script load failure.
+
+### `frontend/src/utils/navigation.js`
+
+- Defines supported route travel modes:
+  - `driving` / 驾车
+  - `walking` / 步行
+  - `transit` / 公交
+  - `riding` / 骑行
+- Provides `getTravelModeLabel(mode)`.
+- Builds Baidu direction URL with `buildBaiduNavigationUrl(fromPlace, toPlace, mode)`.
+- Opens navigation in a new tab with `openBaiduNavigation(fromPlace, toPlace, mode)`.
+
+### `frontend/src/config.js`
+
+- Exports `appConfig`.
+- Reads compile-time global `__APP_CONFIG__` if available.
+- Falls back to:
+  - app name: `旅行规划地图`;
+  - API base URL: `http://localhost:3000/api`;
+  - empty Baidu Map AK.
+
+### `frontend/src/styles.css`
+
+- Global styles for the Vue app.
+- Covers login shell, app shell, top bar, left/right panels, map panel, forms, list rows, Element Plus layout adjustments, and map InfoWindow content.
+
+## Config And Build Files
+
+### `frontend/package.json`
+
+- Package name: `travel-helper-frontend`.
+- Scripts:
+  - `pnpm dev`: starts Vite with host `0.0.0.0`;
+  - `pnpm build`: runs Vite production build;
+  - `pnpm preview`: previews build with host `0.0.0.0`.
+- Dependencies:
+  - Vue 3
+  - Vite
+  - Element Plus
+  - Element Plus icons
+  - Axios
+
+### `frontend/vite.config.js`
+
+- Vite configuration with Vue plugin.
+- Reads `frontend/app.config.json`.
+- Defines fallback config if the JSON file is missing.
+- Exposes public frontend config as `__APP_CONFIG__`.
+- Injects Baidu Map script into `index.html` when a Baidu AK exists.
+- Dev server port comes from `app.config.json` frontend settings, defaulting to `5173`.
+- Production base path is `/travel-helper/`.
+
+### `frontend/app.config.json`
+
+- Local app configuration shared by frontend-related setup.
+- Contains frontend port/API URL, backend/database/auth/Baidu Map settings.
+- Sensitive values exist in this file. Future AI work should avoid copying secrets into logs, docs, commits, or responses unless the user explicitly asks.
+
+### `frontend/index.html`
+
+- Vite HTML entry.
+- Language: `zh-CN`.
+- Mount target: `<div id="app"></div>`.
+- Loads `/src/main.js`.
+- Notes that Baidu Map JS API is injected by `vite.config.js`.
+
+### `frontend/pnpm-lock.yaml`
+
+- pnpm lockfile for reproducible dependency installation.
+- Usually do not edit manually.
+
+## Generated Or Runtime Files
+
+### `frontend/dist/`
+
+- Production build output.
+- Contains generated `index.html`, CSS asset, and JS asset.
+- Usually regenerate with `pnpm build` instead of editing directly.
+
+### `frontend/frontend-dev.log`
+
+- Dev server stdout log.
+- Currently empty at time of indexing.
+
+### `frontend/frontend-dev.err.log`
+
+- Dev server stderr log.
+- Currently empty at time of indexing.
+
+### `frontend/public/`
+
+- Static asset directory.
+- Currently no files were found during indexing.
+
+## Suggested Reading Paths For Future Work
+
+- UI or workflow changes: start with `frontend/src/App.vue`, then `frontend/src/styles.css`.
+- Map rendering, markers, route lines, InfoWindows, or map search: start with `frontend/src/components/MapView.vue`, then `frontend/src/utils/mapLoader.js`.
+- Backend API contract or auth behavior: start with `frontend/src/services/api.js`, then compare with backend routes if needed.
+- Navigation behavior: start with `frontend/src/utils/navigation.js`.
+- Environment, ports, API base URL, Baidu Map AK, or build base path: start with `frontend/vite.config.js` and `frontend/app.config.json`.
+- Dependency or script changes: start with `frontend/package.json`.
+
+## Notes For AI Agents
+
+- Prefer `rg --files frontend` for refreshing this index if files change.
+- Treat `frontend/dist/` as generated unless the user specifically asks about built artifacts.
+- Do not expose secrets from `frontend/app.config.json` in final answers.
+- This frontend depends on a backend API at the configured `apiBaseUrl`; frontend-only testing may still require the backend for authenticated data workflows.

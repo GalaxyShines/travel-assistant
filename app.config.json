@@ -1,0 +1,25 @@
+{
+  "appName": "旅行规划地图",
+  "frontend": {
+    "port": 5177,
+    "apiBaseUrl": "http://localhost:9077/api"
+  },
+  "backend": {
+    "port": 9077,
+    "corsOrigin": "http://localhost:5177"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "ydk20051203",
+    "name": "travel_helper"
+  },
+  "auth": {
+    "password": "Qwerty@123!",
+    "sessionFile": "backend/data/auth-session.json"
+  },
+  "baiduMap": {
+    "ak": "jXifcUvitN1AYi0EU3nNl9tyvYL6wkQM"
+  }
+}
