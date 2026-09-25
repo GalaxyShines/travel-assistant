@@ -8,6 +8,279 @@
   text-rendering: optimizeLegibility;
 }
 
+.route-list,
+.route-place-selector,
+.route-sequence-editor,
+.route-meta-form {
+  min-width: 0;
+}
+
+.route-list-toolbar,
+.route-sequence-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.route-list-toolbar > div,
+.route-sequence-toolbar > div,
+.route-list-actions,
+.route-sequence-actions,
+.route-color-swatches,
+.route-occurrence-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.route-list-items,
+.route-sequence-list,
+.route-place-selector {
+  display: grid;
+  gap: 8px;
+}
+
+.route-list-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid #d9e2df;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.route-list-card.active {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 2px rgba(15, 118, 110, 0.12);
+}
+
+.route-list-main,
+.route-place-option {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.route-list-main {
+  flex: 1;
+}
+
+.route-list-main strong,
+.route-list-main small,
+.route-place-option strong,
+.route-place-option small {
+  display: block;
+}
+
+.route-list-main small,
+.route-place-option small {
+  margin-top: 2px;
+  color: #667085;
+}
+
+.route-color-dot {
+  inline-size: 14px;
+  block-size: 14px;
+  flex: 0 0 auto;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: var(--route-color, #d97706);
+  box-shadow: 0 0 0 1px rgba(24, 33, 47, 0.2);
+}
+
+.route-place-option {
+  width: 100%;
+  min-height: 52px;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #d9e2df;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.route-place-option.selected {
+  border-color: #0f766e;
+  background: #eefaf8;
+}
+
+.route-place-option-copy {
+  min-width: 0;
+}
+
+.route-place-order-list {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.route-place-order-badge {
+  inline-size: 24px;
+  block-size: 24px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--route-color, #0f766e);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.route-sequence-row {
+  display: grid;
+  grid-template-columns: auto minmax(100px, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 1px solid #e2e8e6;
+  border-radius: 9px;
+  background: #ffffff;
+}
+
+.route-sequence-summary {
+  margin: 12px 0 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f4f7f6;
+  color: #475467;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.route-meta-form,
+.route-meta-field {
+  display: grid;
+  gap: 10px;
+}
+
+.route-meta-field > span,
+.route-color-field legend {
+  font-weight: 700;
+}
+
+.route-color-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.route-color-field legend {
+  margin-bottom: 10px;
+}
+
+.route-color-swatch {
+  inline-size: 34px;
+  block-size: 34px;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  background: var(--route-color);
+  box-shadow: 0 0 0 1px #b8c5c1;
+  cursor: pointer;
+}
+
+.route-color-swatch.active {
+  box-shadow: 0 0 0 3px #18212f;
+}
+
+.route-custom-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #475467;
+}
+
+.route-custom-color input {
+  inline-size: 42px;
+  block-size: 34px;
+  padding: 2px;
+  border: 1px solid #b8c5c1;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.route-occurrence-actions {
+  align-items: stretch;
+}
+
+.route-occurrence-actions .el-button {
+  margin: 0;
+}
+
+.place-delete-impact-group {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border-radius: 9px;
+  background: #f1f8f6;
+}
+
+.place-delete-impact-group.danger {
+  background: #fff1f0;
+}
+
+.place-delete-impact-group h4 {
+  margin: 0 0 8px;
+}
+
+.place-delete-impact-group ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.place-delete-impact-group li + li {
+  margin-top: 7px;
+}
+
+.route-list-main:focus-visible,
+.route-place-option:focus-visible,
+.route-color-swatch:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.5);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .route-place-order-badge {
+    inline-size: 28px;
+    block-size: 28px;
+    font-size: 13px;
+  }
+
+  .route-list-card,
+  .route-sequence-row {
+    align-items: stretch;
+  }
+
+  .route-list-card {
+    flex-direction: column;
+  }
+
+  .route-list-actions,
+  .route-sequence-actions {
+    justify-content: flex-end;
+  }
+
+  .route-sequence-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .route-sequence-actions {
+    grid-column: 1 / -1;
+  }
+}
+
 * {
   box-sizing: border-box;
 }
