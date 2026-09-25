@@ -75,7 +75,7 @@ function buildLegacyPlaceSequence(segments) {
     placeIds.push(endpoints.end);
   }
 
-  return placeIds;
+  return validatePlaceIds(placeIds);
 }
 
 function collapseAdjacentPlaceIds(placeIds) {

@@ -71,6 +71,17 @@ test('legacy conversion reports the two segments at a disconnected boundary', ()
   );
 });
 
+test('legacy conversion validates the resulting place sequence', () => {
+  const { buildLegacyPlaceSequence } = require('./routeModel');
+
+  assert.throws(
+    () => buildLegacyPlaceSequence([
+      { id: 8, from_place_id: 0, to_place_id: 2 }
+    ]),
+    /路线地点无效/
+  );
+});
+
 test('adjacent duplicate stops collapse after place deletion', () => {
   const { collapseAdjacentPlaceIds } = require('./routeModel');
 
