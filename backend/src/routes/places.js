@@ -1,5 +1,6 @@
 const express = require('express');
 const { pool } = require('../db');
+const { createPlaceDeletionService } = require('../services/placeDeletionService');
 const asyncHandler = require('../utils/asyncHandler');
 const httpError = require('../utils/httpError');
 const {
@@ -11,6 +12,7 @@ const {
 } = require('../utils/normalizers');
 
 const router = express.Router();
+const placeDeletionService = createPlaceDeletionService(pool);
 
 async function ensureTripExists(tripId) {
   const [rows] = await pool.execute('SELECT id FROM trips WHERE id = ?', [tripId]);
@@ -154,18 +156,14 @@ router.put(
   })
 );
 
-// DELETE /api/places/:id - 删除地点，外键会级联删除相关路线。
+// DELETE /api/places/:id - 删除地点；被路线引用时需显式强制删除。
 router.delete(
   '/places/:id',
   asyncHandler(async (req, res) => {
-    const id = Number(req.params.id);
-    const [result] = await pool.execute('DELETE FROM places WHERE id = ?', [id]);
-
-    if (result.affectedRows === 0) {
-      throw httpError(404, '地点不存在');
-    }
-
-    res.status(204).send();
+    const summary = await placeDeletionService.remove(Number(req.params.id), {
+      force: req.query.force === 'true'
+    });
+    res.status(200).json({ data: summary });
   })
 );
 
