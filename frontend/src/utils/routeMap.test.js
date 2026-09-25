@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import {
+  assignSharedSegmentSlots,
+  buildPlaceBadges,
+  contrastTextColor,
+  expandRouteSegments,
+  offsetSegmentPixels
+} from './routeMap.js';
+
+test('routes expand to directed adjacent segments and repeated-place badges', () => {
+  const routes = [{ id: 7, color: '#DC2626', order_index: 0, stops: [
+    { place_id: 1, stop_index: 1, lng: 1, lat: 1 },
+    { place_id: 2, stop_index: 2, lng: 2, lat: 2 },
+    { place_id: 1, stop_index: 3, lng: 1, lat: 1 }
+  ] }];
+  assert.equal(expandRouteSegments(routes).length, 2);
+  assert.deepEqual(buildPlaceBadges(routes).get(1).map((item) => item.number), [1, 3]);
+});
+
+test('opposite directions share parallel slots but keep opposite vectors', () => {
+  const assigned = assignSharedSegmentSlots([
+    { routeId: 1, routeOrder: 0, segmentIndex: 0, fromPlaceId: 10, toPlaceId: 20 },
+    { routeId: 2, routeOrder: 1, segmentIndex: 0, fromPlaceId: 20, toPlaceId: 10 }
+  ]);
+  assert.deepEqual(assigned.map((item) => item.slot), [-0.5, 0.5]);
+  assert.deepEqual(assigned.map((item) => item.directedSlot), [-0.5, -0.5]);
+  const first = offsetSegmentPixels({ x: 0, y: 0 }, { x: 100, y: 0 }, assigned[0].directedSlot, 8);
+  const reverse = offsetSegmentPixels({ x: 100, y: 0 }, { x: 0, y: 0 }, assigned[1].directedSlot, 8);
+  assert.notEqual(first.from.y, reverse.from.y);
+});
+
+test('three shared segments receive stable centered slots', () => {
+  const assigned = assignSharedSegmentSlots([
+    { routeId: 3, routeOrder: 2, segmentIndex: 0, fromPlaceId: 1, toPlaceId: 2 },
+    { routeId: 1, routeOrder: 0, segmentIndex: 0, fromPlaceId: 1, toPlaceId: 2 },
+    { routeId: 2, routeOrder: 1, segmentIndex: 0, fromPlaceId: 1, toPlaceId: 2 }
+  ]);
+  const byRoute = new Map(assigned.map((item) => [item.routeId, item.slot]));
+  assert.deepEqual([...byRoute.entries()], [[3, 1], [1, -1], [2, 0]]);
+});
+
+test('contrast color is readable for bright and dark route colors', () => {
+  assert.equal(contrastTextColor('#FACC15'), '#111827');
+  assert.equal(contrastTextColor('#2563EB'), '#FFFFFF');
+});

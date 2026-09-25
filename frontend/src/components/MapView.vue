@@ -29,70 +29,59 @@ import { loadBaiduMap } from '../utils/mapLoader';
 import { shouldHandleMapBackgroundClick, stopMapClickPropagation } from '../utils/mapEvents';
 import { syncMapViewport } from '../utils/mapResize';
 import { shouldFitViewportAfterRender } from '../utils/mapViewport';
-import { getTravelModeLabel } from '../utils/navigation';
+import {
+  assignSharedSegmentSlots,
+  buildPlaceBadges,
+  contrastTextColor,
+  expandRouteSegments,
+  offsetSegmentPixels
+} from '../utils/routeMap';
 
 const props = defineProps({
-  places: {
-    type: Array,
-    default: () => []
-  },
-  routes: {
-    type: Array,
-    default: () => []
-  },
-  selectedPlaceId: {
-    type: [Number, String],
-    default: null
-  },
-  showPlaceLabels: {
-    type: Boolean,
-    default: true
-  },
-  showRoutes: {
-    type: Boolean,
-    default: true
-  },
-  interactionMode: {
-    type: String,
-    default: 'browse'
-  },
-  routeStartPlaceId: {
-    type: [Number, String],
-    default: null
-  },
-  showInfoWindows: {
-    type: Boolean,
-    default: true
-  },
-  isVisible: {
-    type: Boolean,
-    default: true
-  }
+  places: { type: Array, default: () => [] },
+  routes: { type: Array, default: () => [] },
+  visibleRouteIds: { type: [Array, Set], default: null },
+  selectedRouteId: { type: [Number, String], default: null },
+  draftRoute: { type: Object, default: null },
+  selectedPlaceId: { type: [Number, String], default: null },
+  showPlaceLabels: { type: Boolean, default: true },
+  interactionMode: { type: String, default: 'browse' },
+  showInfoWindows: { type: Boolean, default: true },
+  isVisible: { type: Boolean, default: true }
 });
 
-const emit = defineEmits(['map-click', 'place-selected', 'route-place-picked', 'route-selected', 'map-availability-changed']);
-
+const emit = defineEmits(['map-click', 'place-selected', 'route-selected', 'map-availability-changed']);
 const mapElement = ref(null);
 const mapError = ref('');
 
 let BMap = null;
 let map = null;
 let markers = [];
-let polylines = [];
+let routeLines = [];
+let routeHalos = [];
+let routeBadgeLabels = [];
 let resizeObserver = null;
 let resizeFrameId = null;
+let routeFrameId = null;
+
+function validColor(color) {
+  return /^#[0-9A-F]{6}$/i.test(color || '') ? color.toUpperCase() : '#D97706';
+}
 
 function scheduleMapViewportSync() {
-  if (!map || resizeFrameId !== null) {
-    return;
-  }
-
-  const sync = () => {
+  if (!map || resizeFrameId !== null) return;
+  resizeFrameId = window.requestAnimationFrame(() => {
     resizeFrameId = null;
     syncMapViewport(map, renderAll);
-  };
+  });
+}
 
-  resizeFrameId = window.requestAnimationFrame(sync);
+function scheduleRouteOverlayRender() {
+  if (!map || routeFrameId !== null) return;
+  routeFrameId = window.requestAnimationFrame(() => {
+    routeFrameId = null;
+    renderRouteOverlays();
+  });
 }
 
 function observeMapViewport() {
@@ -100,7 +89,6 @@ function observeMapViewport() {
     resizeObserver = new ResizeObserver(scheduleMapViewportSync);
     resizeObserver.observe(mapElement.value);
   }
-
   window.addEventListener('resize', scheduleMapViewportSync);
   window.visualViewport?.addEventListener('resize', scheduleMapViewportSync);
 }
@@ -110,10 +98,10 @@ function stopObservingMapViewport() {
   resizeObserver = null;
   window.removeEventListener('resize', scheduleMapViewportSync);
   window.visualViewport?.removeEventListener('resize', scheduleMapViewportSync);
-  if (resizeFrameId !== null) {
-    window.cancelAnimationFrame(resizeFrameId);
-    resizeFrameId = null;
-  }
+  if (resizeFrameId !== null) window.cancelAnimationFrame(resizeFrameId);
+  if (routeFrameId !== null) window.cancelAnimationFrame(routeFrameId);
+  resizeFrameId = null;
+  routeFrameId = null;
 }
 
 function escapeHtml(value) {
@@ -133,20 +121,12 @@ function placePoint(place) {
   return toPoint(place.lng, place.lat);
 }
 
-function routePoints(route) {
-  return {
-    from: toPoint(route.from_lng, route.from_lat),
-    to: toPoint(route.to_lng, route.to_lat)
-  };
-}
-
 function clearOverlays(overlays) {
-  overlays.forEach((overlay) => map.removeOverlay(overlay));
+  overlays.forEach((overlay) => map?.removeOverlay(overlay));
   overlays.length = 0;
 }
 
 function buildPlaceInfoHtml(place) {
-  // 百度地图 InfoWindow 不在 Vue 模板作用域中，按钮通过 App.vue 注册的全局动作回调。
   return `
     <div class="map-info">
       <h3>${escapeHtml(place.name)}</h3>
@@ -158,22 +138,22 @@ function buildPlaceInfoHtml(place) {
         <dt>要做的事</dt><dd>${escapeHtml(place.todo || '无')}</dd>
       </dl>
       <div class="map-info-actions">
-        <button onclick="window.travelMapActions?.editPlace(${place.id})">编辑</button>
-        <button onclick="window.travelMapActions?.navigateFromPlace(${place.id})">导航到下一站</button>
-        <button class="danger" onclick="window.travelMapActions?.deletePlace(${place.id})">删除</button>
+        <button onclick="window.travelMapActions?.editPlace(${Number(place.id)})">编辑</button>
+        <button onclick="window.travelMapActions?.navigateToPlace(${Number(place.id)})">去这里</button>
+        <button class="danger" onclick="window.travelMapActions?.deletePlace(${Number(place.id)})">删除</button>
       </div>
     </div>
   `;
 }
 
 function buildRouteInfoHtml(route) {
+  const color = validColor(route.color);
   return `
     <div class="map-info">
-      <h3>${escapeHtml(route.from_place_name)} → ${escapeHtml(route.to_place_name)}</h3>
-      <p>${escapeHtml(getTravelModeLabel(route.travel_mode))} · 顺序 ${escapeHtml(route.order_index)}</p>
+      <h3>${escapeHtml(route.name)}</h3>
+      <p><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:6px"></span>${Number(route.stops?.length || 0)} 个地点</p>
       <div class="map-info-actions">
-        <button onclick="window.travelMapActions?.navigateRoute(${route.id})">打开百度地图导航</button>
-        <button class="danger" onclick="window.travelMapActions?.deleteRoute(${route.id})">删除线路</button>
+        <button onclick="window.travelMapActions?.editRoute(${Number(route.id)})">编辑路线</button>
       </div>
     </div>
   `;
@@ -196,112 +176,201 @@ function openRouteInfo(route, point) {
 }
 
 function fitViewport() {
-  if (!map || props.places.length === 0) {
-    return;
-  }
-
+  if (!map || props.places.length === 0) return;
   const points = props.places.map(placePoint);
   if (points.length === 1) {
     map.centerAndZoom(points[0], 15);
     return;
   }
-
-  map.setViewport(points, {
-    margins: [56, 56, 56, 56]
-  });
+  map.setViewport(points, { margins: [56, 56, 56, 56] });
 }
 
 function renderMarkers() {
   clearOverlays(markers);
-
   props.places.forEach((place) => {
-    const marker = new BMap.Marker(placePoint(place), {
-      title: place.name
-    });
-    const isSelected = Number(place.id) === Number(props.selectedPlaceId);
-    const isRouteStart = Number(place.id) === Number(props.routeStartPlaceId);
-    const labelText = props.showPlaceLabels
-      ? [place.subtitle, isSelected ? '当前' : '', isRouteStart ? '起点' : ''].filter(Boolean).join(' · ')
-      : isRouteStart
-        ? '起点'
-        : '';
-
-    if (labelText) {
-      const label = new BMap.Label(escapeHtml(labelText), {
-        offset: new BMap.Size(24, -12)
-      });
-      label.setStyle({
-        color: isSelected ? '#ffffff' : '#18212f',
-        backgroundColor: isSelected ? '#0f766e' : '#ffffff',
-        border: isSelected ? '0' : '1px solid #bfd8d4',
-        borderRadius: '4px',
-        boxShadow: '0 4px 12px rgba(24, 33, 47, 0.12)',
-        padding: '3px 7px',
-        fontSize: '12px',
-        lineHeight: '16px',
-        maxWidth: '160px',
-        whiteSpace: 'nowrap'
-      });
-      marker.setLabel(label);
-    }
-
+    const marker = new BMap.Marker(placePoint(place), { title: place.name });
     marker.addEventListener('click', (event) => {
       stopMapClickPropagation(event);
-      if (props.interactionMode === 'route-pick') {
-        emit('route-place-picked', place);
-        return;
-      }
       emit('place-selected', place);
-      if (props.showInfoWindows) {
-        openPlaceInfo(place);
-      }
+      if (props.showInfoWindows) openPlaceInfo(place);
     });
-
     map.addOverlay(marker);
     markers.push(marker);
   });
 }
 
-function renderPolylines() {
-  clearOverlays(polylines);
+function savedVisibleRoutes() {
+  if (props.visibleRouteIds === null) return props.routes;
+  const visibleIds = new Set([...props.visibleRouteIds].map(Number));
+  return props.routes.filter((route) => visibleIds.has(Number(route.id)));
+}
 
-  if (!props.showRoutes) {
-    return;
+function draftAsRoute() {
+  if (!props.draftRoute?.placeIds?.length) return null;
+  const placeById = new Map(props.places.map((place) => [Number(place.id), place]));
+  const stops = props.draftRoute.placeIds.map((placeId, index) => {
+    const place = placeById.get(Number(placeId));
+    return place ? { ...place, place_id: Number(placeId), stop_index: index + 1 } : null;
+  }).filter(Boolean);
+  return {
+    id: -1,
+    name: props.draftRoute.name || '路线草稿',
+    color: validColor(props.draftRoute.color),
+    order_index: Number.MAX_SAFE_INTEGER,
+    stops,
+    draft: true
+  };
+}
+
+function routeRenderData() {
+  const routes = [...savedVisibleRoutes()];
+  const draft = draftAsRoute();
+  if (draft) routes.push(draft);
+  return routes;
+}
+
+function createArrow(color) {
+  if (!BMap.IconSequence || !BMap.Symbol || !window.BMap_Symbol_SHAPE_FORWARD_CLOSED_ARROW) {
+    return [];
   }
+  return [new BMap.IconSequence(
+    new BMap.Symbol(window.BMap_Symbol_SHAPE_FORWARD_CLOSED_ARROW, {
+      scale: 0.7,
+      strokeColor: color,
+      fillColor: color,
+      fillOpacity: 1
+    }),
+    '50%',
+    '0',
+    false
+  )];
+}
 
-  props.routes.forEach((route) => {
-    const points = routePoints(route);
-    const polyline = new BMap.Polyline([points.from, points.to], {
-      strokeColor: '#d97706',
-      strokeWeight: 5,
-      strokeOpacity: 0.78
+function renderRouteLines(routes) {
+  const routesById = new Map(routes.map((route) => [Number(route.id), route]));
+  const segments = assignSharedSegmentSlots(expandRouteSegments(routes));
+  segments.forEach((segment) => {
+    const route = routesById.get(segment.routeId);
+    const color = validColor(segment.color);
+    const rawFrom = toPoint(segment.from.lng, segment.from.lat);
+    const rawTo = toPoint(segment.to.lng, segment.to.lat);
+    const offset = offsetSegmentPixels(
+      map.pointToPixel(rawFrom),
+      map.pointToPixel(rawTo),
+      segment.directedSlot,
+      8
+    );
+    const fromPoint = map.pixelToPoint(new BMap.Pixel(offset.from.x, offset.from.y));
+    const toPointValue = map.pixelToPoint(new BMap.Pixel(offset.to.x, offset.to.y));
+    const selected = Number(props.selectedRouteId) === segment.routeId;
+    const isDraft = segment.routeId === -1;
+    const halo = new BMap.Polyline([fromPoint, toPointValue], {
+      strokeColor: '#FFFFFF',
+      strokeWeight: selected ? 10 : 8,
+      strokeOpacity: 0.92,
+      strokeStyle: isDraft ? 'dashed' : 'solid'
+    });
+    const line = new BMap.Polyline([fromPoint, toPointValue], {
+      strokeColor: color,
+      strokeWeight: selected ? 6 : 4,
+      strokeOpacity: isDraft ? 0.7 : 0.92,
+      strokeStyle: isDraft ? 'dashed' : 'solid',
+      icons: createArrow(color)
     });
 
-    polyline.addEventListener('click', (event) => {
-      const point =
-        event.point ||
-        toPoint((Number(route.from_lng) + Number(route.to_lng)) / 2, (Number(route.from_lat) + Number(route.to_lat)) / 2);
-      emit('route-selected', route);
-      if (props.showInfoWindows) {
-        openRouteInfo(route, point);
-      }
-    });
-
-    map.addOverlay(polyline);
-    polylines.push(polyline);
+    if (!isDraft) {
+      line.addEventListener('click', (event) => {
+        stopMapClickPropagation(event);
+        emit('route-selected', route);
+        if (props.showInfoWindows) {
+          openRouteInfo(route, event.point || map.pixelToPoint(new BMap.Pixel(
+            (offset.from.x + offset.to.x) / 2,
+            (offset.from.y + offset.to.y) / 2
+          )));
+        }
+      });
+    }
+    map.addOverlay(halo);
+    map.addOverlay(line);
+    routeHalos.push(halo);
+    routeLines.push(line);
   });
 }
 
-function renderAll(options = {}) {
-  if (!map) {
-    return;
-  }
+function badgeElement(badge) {
+  const element = document.createElement('span');
+  const color = validColor(badge.color);
+  element.className = `map-route-badge${badge.routeId === -1 ? ' draft' : ''}`;
+  element.textContent = String(badge.number);
+  element.style.backgroundColor = color;
+  element.style.color = contrastTextColor(color);
+  element.title = `路线第 ${badge.number} 站`;
+  return element;
+}
 
-  renderPolylines();
-  renderMarkers();
-  if (shouldFitViewportAfterRender(options)) {
-    nextTick(fitViewport);
+function addBadgeOverlay(place, badges) {
+  const container = document.createElement('div');
+  container.className = 'map-route-place-label';
+  const badgeRow = document.createElement('div');
+  badgeRow.className = 'map-route-badges';
+  badges.forEach((badge) => badgeRow.appendChild(badgeElement(badge)));
+  if (badges.length) container.appendChild(badgeRow);
+
+  const captions = [];
+  if (props.showPlaceLabels && place.subtitle) captions.push(place.subtitle);
+  if (Number(place.id) === Number(props.selectedPlaceId)) captions.push('当前');
+  if (captions.length) {
+    const caption = document.createElement('span');
+    caption.className = 'map-route-place-caption';
+    caption.textContent = captions.join(' · ');
+    container.appendChild(caption);
   }
+  if (!container.childNodes.length) return;
+
+  function RouteBadgeOverlay(point, element) {
+    this.point = point;
+    this.element = element;
+  }
+  RouteBadgeOverlay.prototype = new BMap.Overlay();
+  RouteBadgeOverlay.prototype.initialize = function initialize(mapInstance) {
+    this.map = mapInstance;
+    mapInstance.getPanes().labelPane.appendChild(this.element);
+    return this.element;
+  };
+  RouteBadgeOverlay.prototype.draw = function draw() {
+    const pixel = this.map.pointToOverlayPixel(this.point);
+    this.element.style.left = `${pixel.x}px`;
+    this.element.style.top = `${pixel.y}px`;
+  };
+
+  const overlay = new RouteBadgeOverlay(placePoint(place), container);
+  map.addOverlay(overlay);
+  routeBadgeLabels.push(overlay);
+}
+
+function renderRouteBadges(routes) {
+  const badgesByPlace = buildPlaceBadges(routes);
+  props.places.forEach((place) => addBadgeOverlay(
+    place,
+    badgesByPlace.get(Number(place.id)) || []
+  ));
+}
+
+function renderRouteOverlays() {
+  if (!map) return;
+  clearOverlays(routeLines);
+  clearOverlays(routeHalos);
+  clearOverlays(routeBadgeLabels);
+  const routes = routeRenderData();
+  renderRouteLines(routes);
+  renderRouteBadges(routes);
+}
+
+function renderAll(options = {}) {
+  if (!map) return;
+  renderMarkers();
+  renderRouteOverlays();
+  if (shouldFitViewportAfterRender(options)) nextTick(fitViewport);
 }
 
 async function initMap() {
@@ -312,17 +381,15 @@ async function initMap() {
     map.enableScrollWheelZoom(true);
     map.addControl(new BMap.NavigationControl());
     map.addControl(new BMap.ScaleControl());
-
     map.addEventListener('click', (event) => {
-      if (!event.point || !shouldHandleMapBackgroundClick(props.interactionMode)) {
-        return;
-      }
+      if (!event.point || !shouldHandleMapBackgroundClick(props.interactionMode)) return;
       emit('map-click', {
         lng: Number(event.point.lng.toFixed(7)),
         lat: Number(event.point.lat.toFixed(7))
       });
     });
-
+    map.addEventListener('zoomend', scheduleRouteOverlayRender);
+    map.addEventListener('moveend', scheduleRouteOverlayRender);
     renderAll({ fitViewport: true });
     observeMapViewport();
     nextTick(scheduleMapViewportSync);
@@ -335,28 +402,17 @@ async function initMap() {
 
 function focusPlace(placeId) {
   const place = props.places.find((item) => Number(item.id) === Number(placeId));
-  if (!map || !place) {
-    return;
-  }
-
+  if (!map || !place) return;
   const point = placePoint(place);
   map.panTo(point);
   map.setZoom(Math.max(map.getZoom(), 15));
-  if (props.showInfoWindows) {
-    openPlaceInfo(place);
-  }
+  if (props.showInfoWindows) openPlaceInfo(place);
 }
 
 async function searchPlaces(keyword) {
-  if (!map || !BMap) {
-    throw new Error(mapError.value || '地图尚未初始化完成');
-  }
-
+  if (!map || !BMap) throw new Error(mapError.value || '地图尚未初始化完成');
   const trimmedKeyword = keyword.trim();
-  if (!trimmedKeyword) {
-    return [];
-  }
-
+  if (!trimmedKeyword) return [];
   return new Promise((resolve, reject) => {
     const localSearch = new BMap.LocalSearch(map, {
       onSearchComplete: (searchResult) => {
@@ -365,28 +421,16 @@ async function searchPlaces(keyword) {
           resolve([]);
           return;
         }
-
         const results = [];
         const resultSets = Array.isArray(searchResult) ? searchResult : [searchResult];
-
         resultSets.forEach((resultSet) => {
-          if (!resultSet) {
-            return;
-          }
-
-          const count =
-            typeof resultSet.getCurrentNumPois === 'function'
-              ? resultSet.getCurrentNumPois()
-              : typeof resultSet.getNumPois === 'function'
-                ? resultSet.getNumPois()
-                : 0;
-
+          if (!resultSet) return;
+          const count = typeof resultSet.getCurrentNumPois === 'function'
+            ? resultSet.getCurrentNumPois()
+            : typeof resultSet.getNumPois === 'function' ? resultSet.getNumPois() : 0;
           for (let index = 0; index < count; index += 1) {
             const poi = resultSet.getPoi(index);
-            if (!poi?.point) {
-              continue;
-            }
-
+            if (!poi?.point) continue;
             results.push({
               name: poi.title,
               address: poi.address || [poi.province, poi.city].filter(Boolean).join(' '),
@@ -396,11 +440,9 @@ async function searchPlaces(keyword) {
             });
           }
         });
-
         resolve(results);
       }
     });
-
     try {
       localSearch.search(trimmedKeyword);
     } catch (error) {
@@ -409,40 +451,53 @@ async function searchPlaces(keyword) {
   });
 }
 
+function convertToBaiduPoint(coords) {
+  if (!BMap) return Promise.reject(new Error('地图尚未初始化完成'));
+  return new Promise((resolve, reject) => {
+    const point = new BMap.Point(Number(coords.lng), Number(coords.lat));
+    new BMap.Convertor().translate([point], 1, 5, (result) => {
+      if (result.status !== 0 || !result.points?.[0]) {
+        reject(new Error('坐标转换失败'));
+        return;
+      }
+      resolve({ lng: Number(result.points[0].lng), lat: Number(result.points[0].lat) });
+    });
+  });
+}
+
+watch(() => props.places, () => renderAll(), { deep: true });
 watch(
-  () => [props.places, props.routes],
-  () => renderAll(),
+  () => [props.routes, props.visibleRouteIds, props.selectedRouteId, props.draftRoute],
+  scheduleRouteOverlayRender,
   { deep: true }
 );
-
 watch(
-  () => [props.selectedPlaceId, props.showPlaceLabels, props.showRoutes, props.interactionMode, props.routeStartPlaceId],
-  () => renderAll()
+  () => [props.selectedPlaceId, props.showPlaceLabels],
+  scheduleRouteOverlayRender
 );
-
 watch(
   () => props.isVisible,
   (visible) => {
-    if (visible) {
-      nextTick(scheduleMapViewportSync);
-    }
+    if (visible) nextTick(scheduleMapViewportSync);
   },
   { flush: 'post' }
 );
 
 onMounted(initMap);
-
 onBeforeUnmount(() => {
   stopObservingMapViewport();
-  if (!map) {
-    return;
-  }
+  if (!map) return;
+  map.removeEventListener?.('zoomend', scheduleRouteOverlayRender);
+  map.removeEventListener?.('moveend', scheduleRouteOverlayRender);
   clearOverlays(markers);
-  clearOverlays(polylines);
+  clearOverlays(routeLines);
+  clearOverlays(routeHalos);
+  clearOverlays(routeBadgeLabels);
 });
 
 defineExpose({
   focusPlace,
-  searchPlaces
+  searchPlaces,
+  convertToBaiduPoint
 });
 </script>
