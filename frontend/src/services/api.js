@@ -42,7 +42,10 @@ api.interceptors.response.use(
       clearAuthToken();
       unauthorizedHandler?.(message);
     }
-    return Promise.reject(new Error(message));
+    const requestError = new Error(message);
+    requestError.statusCode = error.response?.status;
+    requestError.details = error.response?.data?.details;
+    return Promise.reject(requestError);
   }
 );
 
@@ -66,7 +69,9 @@ export const placeApi = {
   list: (tripId) => unwrap(api.get(`/trips/${tripId}/places`)),
   create: (tripId, payload) => unwrap(api.post(`/trips/${tripId}/places`, payload)),
   update: (id, payload) => unwrap(api.put(`/places/${id}`, payload)),
-  remove: (id) => api.delete(`/places/${id}`)
+  remove: (id, { force = false } = {}) => unwrap(api.delete(`/places/${id}`, {
+    params: force ? { force: 'true' } : {}
+  }))
 };
 
 export const routeApi = {

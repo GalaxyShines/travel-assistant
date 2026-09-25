@@ -1,7 +1,6 @@
 const STORAGE_KEY = 'travel-helper-map-display-preferences';
 const DEFAULT_PREFERENCES = Object.freeze({
-  showPlaceLabels: true,
-  showRoutes: true
+  showPlaceLabels: true
 });
 
 function isStorageAvailable(storage) {
@@ -23,15 +22,13 @@ export function loadMapDisplayPreferences(storage) {
     if (
       !stored ||
       typeof stored !== 'object' ||
-      typeof stored.showPlaceLabels !== 'boolean' ||
-      typeof stored.showRoutes !== 'boolean'
+      typeof stored.showPlaceLabels !== 'boolean'
     ) {
       return { ...DEFAULT_PREFERENCES };
     }
 
     return {
-      showPlaceLabels: stored.showPlaceLabels,
-      showRoutes: stored.showRoutes
+      showPlaceLabels: stored.showPlaceLabels
     };
   } catch {
     return { ...DEFAULT_PREFERENCES };
@@ -46,8 +43,7 @@ export function saveMapDisplayPreferences(preferences, storage) {
   storage.setItem(
     STORAGE_KEY,
     JSON.stringify({
-      showPlaceLabels: preferences.showPlaceLabels === true,
-      showRoutes: preferences.showRoutes === true
+      showPlaceLabels: preferences.showPlaceLabels === true
     })
   );
 }

@@ -14,30 +14,37 @@ function createStorage(initialValue = null) {
   };
 }
 
-test('missing display preferences keep labels and routes visible', () => {
+test('missing display preferences keep place labels visible', () => {
   assert.deepEqual(loadMapDisplayPreferences(createStorage()), {
-    showPlaceLabels: true,
-    showRoutes: true
+    showPlaceLabels: true
   });
 });
 
 test('saved display preferences are restored on the next load', () => {
   const storage = createStorage();
-  saveMapDisplayPreferences({ showPlaceLabels: false, showRoutes: true }, storage);
+  saveMapDisplayPreferences({ showPlaceLabels: false }, storage);
 
   assert.deepEqual(loadMapDisplayPreferences(storage), {
-    showPlaceLabels: false,
-    showRoutes: true
+    showPlaceLabels: false
   });
 });
 
 test('invalid cached preferences fall back to visible defaults', () => {
   assert.deepEqual(loadMapDisplayPreferences(createStorage('{not-json')), {
-    showPlaceLabels: true,
-    showRoutes: true
+    showPlaceLabels: true
   });
   assert.deepEqual(loadMapDisplayPreferences(createStorage('{"showPlaceLabels":"false"}')), {
-    showPlaceLabels: true,
-    showRoutes: true
+    showPlaceLabels: true
+  });
+});
+
+test('legacy showRoutes false is ignored while the label preference is retained', () => {
+  const storage = createStorage(JSON.stringify({
+    showPlaceLabels: false,
+    showRoutes: false
+  }));
+
+  assert.deepEqual(loadMapDisplayPreferences(storage), {
+    showPlaceLabels: false
   });
 });
