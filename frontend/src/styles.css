@@ -683,6 +683,37 @@ textarea {
   overflow: auto;
 }
 
+.left-panel .route-list-items {
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.right-panel .route-place-selector {
+  max-height: min(36vh, 330px);
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.right-panel .route-sequence-editor {
+  margin-top: 14px;
+}
+
+.right-panel .route-sequence-list {
+  max-height: min(28vh, 250px);
+  overflow: auto;
+}
+
+.route-editor-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  justify-content: flex-end;
+  margin-top: 14px;
+  padding: 10px 0 2px;
+  background: #ffffff;
+}
+
 .search-result-list {
   margin-top: 12px;
 }

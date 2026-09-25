@@ -43,6 +43,7 @@ api.interceptors.response.use(
       unauthorizedHandler?.(message);
     }
     const requestError = new Error(message);
+    requestError.status = error.response?.status;
     requestError.statusCode = error.response?.status;
     requestError.details = error.response?.data?.details;
     return Promise.reject(requestError);

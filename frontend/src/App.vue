@@ -24,7 +24,7 @@
         <el-icon class="brand-icon"><MapLocation /></el-icon>
         <div>
           <strong>{{ appConfig.appName }}</strong>
-          <span>旅行计划 · 地点 · 连线 · 百度地图导航</span>
+          <span>旅行计划 · 地点 · 多路线 · 百度地图导航</span>
         </div>
       </div>
 
@@ -96,7 +96,7 @@
                 </div>
               </div>
               <div class="row-actions" @click.stop>
-                <el-button size="small" :icon="Guide" circle @click="navigateFromPlace(place.id)" />
+                <el-button size="small" type="primary" plain @click="goToPlace(place)">去这里</el-button>
                 <el-button size="small" :icon="Edit" circle @click="selectPlace(place)" />
                 <el-button size="small" :icon="Delete" circle type="danger" plain @click="deletePlace(place)" />
               </div>
@@ -106,46 +106,34 @@
         </section>
 
         <section class="panel-section">
-          <div class="section-title">
-            <h2>路线列表</h2>
-            <span>{{ routes.length }} 条</span>
-          </div>
-          <el-scrollbar max-height="240px">
-            <div
-              v-for="route in sortedRoutes"
-              :key="route.id"
-              class="list-row route-row"
-              :class="{ active: Number(route.id) === Number(selectedRouteId) }"
-              @click="selectRoute(route)"
-            >
-              <div class="row-main">
-                <span class="order-pill route">{{ route.order_index }}</span>
-                <div>
-                  <strong>{{ route.from_place_name }} → {{ route.to_place_name }}</strong>
-                  <span>{{ getTravelModeLabel(route.travel_mode) }}</span>
-                </div>
-              </div>
-              <div class="row-actions" @click.stop>
-                <el-button size="small" :icon="Guide" circle @click="navigateRoute(route.id)" />
-                <el-button size="small" :icon="Edit" circle @click="selectRoute(route)" />
-                <el-button size="small" :icon="Delete" circle type="danger" plain @click="deleteRoute(route)" />
-              </div>
-            </div>
-            <el-empty v-if="sortedRoutes.length === 0" description="当前计划暂无路线" :image-size="72" />
-          </el-scrollbar>
+          <RouteList
+            :routes="sortedRoutes"
+            :hidden-route-ids="hiddenRouteIds"
+            :selected-route-id="selectedRouteId"
+            @create="startNewRoute"
+            @toggle-visibility="toggleRouteVisibility"
+            @show-all="showAllRoutes"
+            @hide-all="hideAllRoutes"
+            @edit="startEditRoute"
+            @delete="deleteRoute"
+          />
         </section>
       </aside>
 
       <section class="map-panel">
         <MapView
-          ref="mapRef"
+          ref="desktopMapRef"
           :places="places"
           :routes="routes"
+          :visible-route-ids="currentVisibleRouteIds"
+          :selected-route-id="selectedRouteId"
+          :draft-route="routeEditorMode ? routeDraft : null"
           :selected-place-id="selectedPlaceId"
           interaction-mode="place-pick"
           :is-visible="true"
           @map-click="handleMapClick"
           @place-selected="selectPlace"
+          @route-selected="startEditRoute"
         />
       </section>
 
@@ -250,59 +238,44 @@
             </section>
           </el-tab-pane>
 
-          <el-tab-pane label="连线" name="route">
+          <el-tab-pane label="路线" name="route">
             <section class="panel-section flat">
               <div class="section-title">
-                <h2>{{ routeForm.id ? '编辑路线' : '创建路线连线' }}</h2>
-                <div class="section-actions">
-                  <el-button size="small" :icon="Plus" :disabled="!currentTrip" @click="startNewRoute">新建连线</el-button>
-                  <el-button size="small" :icon="Connection" :disabled="places.length < 2" @click="autoGenerateRoutes">
-                    按顺序生成
-                  </el-button>
-                </div>
+                <h2>{{ routeEditorMode === 'edit' ? '编辑路线' : routeEditorMode === 'create' ? '创建路线' : '路线规划' }}</h2>
+                <el-button v-if="!routeEditorMode" size="small" type="primary" :disabled="!currentTrip" @click="startNewRoute">创建路线</el-button>
               </div>
-              <el-form label-position="top" class="edit-form">
-                <el-form-item label="起点">
-                  <el-select v-model="routeForm.from_place_id" filterable placeholder="选择起点" class="full-width">
-                    <el-option v-for="place in sortedPlaces" :key="place.id" :label="place.name" :value="place.id" />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="终点">
-                  <el-select v-model="routeForm.to_place_id" filterable placeholder="选择终点" class="full-width">
-                    <el-option v-for="place in sortedPlaces" :key="place.id" :label="place.name" :value="place.id" />
-                  </el-select>
-                </el-form-item>
-                <div class="swap-route-row">
-                  <el-button
-                    :icon="SwitchIcon"
-                    :disabled="!routeForm.from_place_id || !routeForm.to_place_id"
-                    @click="swapRouteEndpoints"
-                  >
-                    互换起终点
-                  </el-button>
-                </div>
-                <el-form-item label="交通方式">
-                  <el-radio-group v-model="routeForm.travel_mode" class="mode-group">
-                    <el-radio-button v-for="mode in travelModeOptions" :key="mode.value" :label="mode.value">
-                      {{ mode.label }}
-                    </el-radio-button>
-                  </el-radio-group>
-                </el-form-item>
-                <el-form-item label="排序">
-                  <el-input-number v-model="routeForm.order_index" :min="0" controls-position="right" />
-                </el-form-item>
-                <div class="form-actions">
-                  <el-button
-                    type="primary"
-                    :icon="Connection"
-                    :loading="loading.route"
-                    :disabled="!currentTrip || places.length < 2"
-                    @click="saveRoute"
-                  >
-                    {{ routeForm.id ? '保存路线' : '创建连线' }}
-                  </el-button>
-                </div>
-              </el-form>
+              <template v-if="routeEditorMode">
+                <template v-if="routeEditorStep === 1">
+                  <RoutePlaceSelector
+                    :places="sortedPlaces"
+                    :place-ids="routeDraft.placeIds"
+                    @place-click="handleDraftPlaceClick"
+                  />
+                  <RouteSequenceEditor
+                    :place-ids="routeDraft.placeIds"
+                    :places="places"
+                    :can-undo="routeHistory.length > 0"
+                    @move="moveDraftStop"
+                    @remove="removeDraftStop"
+                    @undo="undoRouteDraft"
+                    @clear="clearRouteDraft"
+                  />
+                  <div class="form-actions route-editor-actions">
+                    <el-button @click="cancelRouteEditor">取消</el-button>
+                    <el-button type="primary" :disabled="routeDraft.placeIds.length < 2" @click="routeEditorStep = 2">下一步</el-button>
+                  </div>
+                </template>
+                <template v-else>
+                  <RouteMetaForm v-model:name="routeDraft.name" v-model:color="routeDraft.color" />
+                  <div class="form-actions route-editor-actions">
+                    <el-button @click="routeEditorStep = 1">返回修改</el-button>
+                    <el-button type="primary" :loading="loading.route" @click="saveRouteDraft">
+                      {{ routeEditorMode === 'edit' ? '保存修改' : '创建路线' }}
+                    </el-button>
+                  </div>
+                </template>
+              </template>
+              <el-empty v-else description="从左侧路线列表编辑，或创建一条新路线" :image-size="80" />
             </section>
           </el-tab-pane>
         </el-tabs>
@@ -321,9 +294,12 @@
 
       <section v-show="mobilePage === 'map'" class="mobile-map-page">
         <MapView
-          ref="mapRef"
+          ref="mobileMapRef"
           :places="places"
           :routes="routes"
+          :visible-route-ids="currentVisibleRouteIds"
+          :selected-route-id="selectedRouteId"
+          :draft-route="routeEditorMode ? routeDraft : null"
           :selected-place-id="selectedPlaceId"
           :show-place-labels="showPlaceLabels"
           :show-routes="showRoutes"
@@ -463,6 +439,23 @@
         <el-button type="primary" :loading="loading.trip" @click="saveTrip">保存</el-button>
       </template>
     </el-dialog>
+
+    <RouteOccurrenceDialog
+      v-model="routeOccurrenceState.visible"
+      :place="routeOccurrenceState.place"
+      :occurrence-numbers="routeOccurrenceState.occurrenceNumbers"
+      @remove-index="removeDraftOccurrence"
+      @remove-all="removeAllDraftOccurrences"
+      @pass-again="appendRepeatedDraftPlace"
+    />
+
+    <PlaceDeleteImpactDialog
+      v-model="placeDeleteState.visible"
+      :place="placeDeleteState.place"
+      :impact="placeDeleteState.impact"
+      :loading="placeDeleteState.loading"
+      @confirm="confirmForceDeletePlace"
+    />
   </div>
 </template>
 
@@ -487,6 +480,12 @@ import {
 import MapView from './components/MapView.vue';
 import MobileBottomNav from './components/MobileBottomNav.vue';
 import MobileMapControls from './components/MobileMapControls.vue';
+import PlaceDeleteImpactDialog from './components/PlaceDeleteImpactDialog.vue';
+import RouteList from './components/RouteList.vue';
+import RouteMetaForm from './components/RouteMetaForm.vue';
+import RouteOccurrenceDialog from './components/RouteOccurrenceDialog.vue';
+import RoutePlaceSelector from './components/RoutePlaceSelector.vue';
+import RouteSequenceEditor from './components/RouteSequenceEditor.vue';
 import { appConfig } from './config';
 import {
   authApi,
@@ -498,16 +497,39 @@ import {
   setUnauthorizedHandler,
   tripApi
 } from './services/api';
-import { getTravelModeLabel, openBaiduNavigation, travelModeOptions } from './utils/navigation';
+import {
+  buildBaiduSelfLocateDrivingUrl,
+  getTravelModeLabel,
+  navigateToPlace,
+  openBaiduNavigation,
+  travelModeOptions
+} from './utils/navigation';
 import { createEmptyPlaceForm, placeFormFromPlace, placePayloadFromForm } from './utils/placeForm';
 import { createEmptyRouteForm, routeFormFromRoute, routePayloadFromForm, swapRoutePlaces } from './utils/routeForm';
 import { MAP_INTERACTION_MODES, clearInteraction, pickRouteEndpoint, toggleInteractionMode } from './utils/mapInteraction';
 import { loadMapDisplayPreferences, saveMapDisplayPreferences } from './utils/mapPreferences';
 import { hasDuplicateRoute } from './utils/routeDuplicate';
+import {
+  appendStop,
+  createRouteDraft,
+  getOccurrenceNumbers,
+  moveStop,
+  removeAllStops,
+  removeStopAt,
+  routeDraftPayload,
+  routeToDraft,
+  undoStops
+} from './utils/routeDraft';
+import {
+  loadHiddenRouteIds,
+  saveHiddenRouteIds,
+  visibleRouteIds
+} from './utils/routeVisibility';
 import { attemptPasswordParamLogin, removePasswordLoginParam } from './utils/passwordLogin';
 import { resolveMobileOverlayClose } from './utils/mobileOverlay';
 
-const mapRef = ref(null);
+const desktopMapRef = ref(null);
+const mobileMapRef = ref(null);
 const isAuthenticated = ref(Boolean(getAuthToken()));
 const trips = ref([]);
 const places = ref([]);
@@ -515,6 +537,22 @@ const routes = ref([]);
 const selectedTripId = ref(null);
 const selectedPlaceId = ref(null);
 const selectedRouteId = ref(null);
+const routeDraft = reactive(createRouteDraft());
+const routeEditorStep = ref(1);
+const routeEditorMode = ref(null);
+const routeHistory = ref([]);
+const hiddenRouteIds = ref(new Set());
+const routeOccurrenceState = reactive({
+  visible: false,
+  place: null,
+  occurrenceNumbers: []
+});
+const placeDeleteState = reactive({
+  visible: false,
+  place: null,
+  impact: null,
+  loading: false
+});
 const activeTab = ref('search');
 const searchKeyword = ref('');
 const searchResults = ref([]);
@@ -564,6 +602,7 @@ const routeForm = reactive(createEmptyRouteForm());
 
 const currentTrip = computed(() => trips.value.find((trip) => Number(trip.id) === Number(selectedTripId.value)));
 const selectedPlace = computed(() => places.value.find((place) => Number(place.id) === Number(selectedPlaceId.value)) || null);
+const activeMapRef = computed(() => isMobileViewport.value ? mobileMapRef.value : desktopMapRef.value);
 
 const sortedPlaces = computed(() =>
   [...places.value].sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
@@ -572,6 +611,7 @@ const sortedPlaces = computed(() =>
 const sortedRoutes = computed(() =>
   [...routes.value].sort((a, b) => Number(a.order_index) - Number(b.order_index) || Number(a.id) - Number(b.id))
 );
+const currentVisibleRouteIds = computed(() => visibleRouteIds(routes.value, hiddenRouteIds.value));
 
 watch([showPlaceLabels, showRoutes], () => {
   if (typeof window !== 'undefined') {
@@ -592,6 +632,17 @@ function resetPlaceForm() {
 function resetRouteForm() {
   Object.assign(routeForm, createEmptyRouteForm(routes.value.length));
   selectedRouteId.value = null;
+}
+
+function resetRouteDraftState() {
+  Object.assign(routeDraft, createRouteDraft(routes.value.length));
+  routeEditorStep.value = 1;
+  routeEditorMode.value = null;
+  routeHistory.value = [];
+  selectedRouteId.value = null;
+  routeOccurrenceState.visible = false;
+  routeOccurrenceState.place = null;
+  routeOccurrenceState.occurrenceNumbers = [];
 }
 
 function exitMapInteraction() {
@@ -644,8 +695,11 @@ function resetWorkspaceState() {
   searchKeyword.value = '';
   mobilePage.value = 'map';
   mobileOverlay.value = null;
+  hiddenRouteIds.value = new Set();
+  placeDeleteState.visible = false;
   exitMapInteraction();
   resetRouteForm();
+  resetRouteDraftState();
   resetPlaceForm();
 }
 
@@ -733,6 +787,25 @@ function placeFromRoute(route, side) {
   };
 }
 
+function normalizeRoute(route) {
+  return {
+    ...route,
+    id: Number(route.id),
+    trip_id: Number(route.trip_id),
+    order_index: Number(route.order_index),
+    version: Number(route.version),
+    color: String(route.color || '#D97706').toUpperCase(),
+    stops: (route.stops || []).map((stop) => ({
+      ...stop,
+      id: Number(stop.id),
+      place_id: Number(stop.place_id),
+      stop_index: Number(stop.stop_index),
+      lng: Number(stop.lng),
+      lat: Number(stop.lat)
+    }))
+  };
+}
+
 async function loadTrips() {
   loading.list = true;
   try {
@@ -743,7 +816,9 @@ async function loadTrips() {
       selectedTripId.value = null;
       places.value = [];
       routes.value = [];
+      hiddenRouteIds.value = new Set();
       resetPlaceForm();
+      resetRouteDraftState();
       return;
     }
 
@@ -761,6 +836,8 @@ async function loadTripData() {
   if (!selectedTripId.value) {
     places.value = [];
     routes.value = [];
+    hiddenRouteIds.value = new Set();
+    resetRouteDraftState();
     return;
   }
 
@@ -770,9 +847,15 @@ async function loadTripData() {
       routeApi.list(selectedTripId.value)
     ]);
     places.value = placeData || [];
-    routes.value = routeData || [];
+    routes.value = (routeData || []).map(normalizeRoute);
+    hiddenRouteIds.value = loadHiddenRouteIds(
+      selectedTripId.value,
+      routes.value,
+      typeof window !== 'undefined' ? window.localStorage : null
+    );
     resetPlaceForm();
     resetRouteForm();
+    resetRouteDraftState();
   } catch (error) {
     ElMessage.error(error.message);
   }
@@ -887,7 +970,7 @@ function selectPlace(place) {
   } else {
     activeTab.value = 'place';
   }
-  mapRef.value?.focusPlace(place.id);
+  activeMapRef.value?.focusPlace(place.id);
 }
 
 function handleRoutePlacePicked(place) {
@@ -922,12 +1005,163 @@ function handleRoutePlacePicked(place) {
 }
 
 function startNewRoute() {
-  resetRouteForm();
   if (isMobileViewport.value) {
+    resetRouteForm();
     mobilePage.value = 'routes';
     mobileOverlay.value = 'route-form';
   } else {
+    resetRouteDraftState();
+    Object.assign(routeDraft, createRouteDraft(routes.value.length));
+    routeEditorMode.value = 'create';
     activeTab.value = 'route';
+  }
+}
+
+function startEditRoute(route) {
+  resetRouteDraftState();
+  Object.assign(routeDraft, routeToDraft(route));
+  routeEditorMode.value = 'edit';
+  selectedRouteId.value = Number(route.id);
+  selectedPlaceId.value = null;
+  activeTab.value = 'route';
+}
+
+function applyDraftResult(next) {
+  if (next.error === 'adjacent-duplicate') {
+    ElMessage.warning('相邻地点不能相同');
+    return;
+  }
+  if (!next.changed) return;
+  routeHistory.value.push([...routeDraft.placeIds]);
+  routeDraft.placeIds = next.placeIds;
+  if (next.mergedAdjacent) ElMessage.info('已合并相邻的相同地点');
+}
+
+async function handleDraftPlaceClick(placeId) {
+  const place = places.value.find((item) => Number(item.id) === Number(placeId));
+  if (!place) return;
+  const occurrenceNumbers = getOccurrenceNumbers(routeDraft.placeIds, placeId);
+  if (occurrenceNumbers.length === 0) {
+    applyDraftResult(appendStop(routeDraft.placeIds, placeId));
+    return;
+  }
+
+  try {
+    await ElMessageBox.confirm(`“${place.name}”已在路线中，请选择操作。`, '已选择该地点', {
+      confirmButtonText: '再次经过该地点',
+      cancelButtonText: '删除该地点',
+      distinguishCancelAndClose: true,
+      type: 'info'
+    });
+    applyDraftResult(appendStop(routeDraft.placeIds, placeId));
+  } catch (action) {
+    if (action === 'close') return;
+    if (action !== 'cancel') throw action;
+    if (occurrenceNumbers.length === 1) {
+      applyDraftResult(removeStopAt(routeDraft.placeIds, occurrenceNumbers[0] - 1));
+      return;
+    }
+    routeOccurrenceState.place = place;
+    routeOccurrenceState.occurrenceNumbers = occurrenceNumbers;
+    routeOccurrenceState.visible = true;
+  }
+}
+
+function appendRepeatedDraftPlace() {
+  if (routeOccurrenceState.place) {
+    applyDraftResult(appendStop(routeDraft.placeIds, routeOccurrenceState.place.id));
+  }
+}
+
+function removeDraftOccurrence(index) {
+  applyDraftResult(removeStopAt(routeDraft.placeIds, index));
+}
+
+function removeAllDraftOccurrences() {
+  if (routeOccurrenceState.place) {
+    applyDraftResult(removeAllStops(routeDraft.placeIds, routeOccurrenceState.place.id));
+  }
+}
+
+function moveDraftStop(fromIndex, toIndex) {
+  applyDraftResult(moveStop(routeDraft.placeIds, fromIndex, toIndex));
+}
+
+function removeDraftStop(index) {
+  applyDraftResult(removeStopAt(routeDraft.placeIds, index));
+}
+
+function undoRouteDraft() {
+  const previous = undoStops(routeHistory.value);
+  if (!previous) return;
+  routeDraft.placeIds = previous;
+  routeHistory.value = routeHistory.value.slice(0, -1);
+}
+
+function clearRouteDraft() {
+  if (routeDraft.placeIds.length === 0) return;
+  routeHistory.value.push([...routeDraft.placeIds]);
+  routeDraft.placeIds = [];
+}
+
+function cancelRouteEditor() {
+  resetRouteDraftState();
+}
+
+function persistHiddenRouteIds() {
+  saveHiddenRouteIds(
+    selectedTripId.value,
+    hiddenRouteIds.value,
+    typeof window !== 'undefined' ? window.localStorage : null
+  );
+}
+
+function toggleRouteVisibility(routeId) {
+  const next = new Set(hiddenRouteIds.value);
+  const numericId = Number(routeId);
+  if (next.has(numericId)) next.delete(numericId);
+  else next.add(numericId);
+  hiddenRouteIds.value = next;
+  persistHiddenRouteIds();
+}
+
+function showAllRoutes() {
+  hiddenRouteIds.value = new Set();
+  persistHiddenRouteIds();
+}
+
+function hideAllRoutes() {
+  hiddenRouteIds.value = new Set(routes.value.map((route) => Number(route.id)));
+  persistHiddenRouteIds();
+}
+
+async function saveRouteDraft() {
+  if (!currentTrip.value) {
+    ElMessage.warning('请先选择旅行计划');
+    return;
+  }
+  if (routeDraft.placeIds.length < 2) {
+    ElMessage.warning('路线至少需要两个地点');
+    return;
+  }
+  if (!routeDraft.name.trim()) {
+    ElMessage.warning('请填写路线名称');
+    return;
+  }
+
+  loading.route = true;
+  try {
+    const wasEditing = Boolean(routeDraft.id);
+    const saved = routeDraft.id
+      ? await routeApi.update(routeDraft.id, routeDraftPayload(routeDraft))
+      : await routeApi.create(selectedTripId.value, routeDraftPayload(routeDraft));
+    await loadTripData();
+    selectedRouteId.value = Number(saved.id);
+    ElMessage.success(wasEditing ? '路线已保存' : '路线已创建');
+  } catch (error) {
+    ElMessage.error(error.message);
+  } finally {
+    loading.route = false;
   }
 }
 
@@ -986,7 +1220,7 @@ async function savePlace() {
 
 async function deletePlace(place) {
   try {
-    await ElMessageBox.confirm(`确定删除地点「${place.name}」及相关路线吗？`, '删除地点', {
+    await ElMessageBox.confirm(`确定删除地点「${place.name}」吗？`, '删除地点', {
       type: 'warning'
     });
     await placeApi.remove(place.id);
@@ -996,9 +1230,35 @@ async function deletePlace(place) {
     }
     ElMessage.success('地点已删除');
   } catch (error) {
+    if (error?.status === 409 && error?.details?.type === 'PLACE_IN_ROUTES') {
+      placeDeleteState.place = place;
+      placeDeleteState.impact = error.details;
+      placeDeleteState.visible = true;
+      return;
+    }
     if (error !== 'cancel' && error !== 'close') {
       ElMessage.error(error.message || '删除已取消');
     }
+  }
+}
+
+async function confirmForceDeletePlace() {
+  if (!placeDeleteState.place) return;
+  placeDeleteState.loading = true;
+  try {
+    const summary = await placeApi.remove(placeDeleteState.place.id, { force: true });
+    placeDeleteState.visible = false;
+    placeDeleteState.place = null;
+    placeDeleteState.impact = null;
+    await loadTripData();
+    if (isMobileViewport.value) closeMobileOverlay();
+    const relinkedCount = summary?.relinkedRoutes?.length || 0;
+    const deletedCount = summary?.deletedRoutes?.length || 0;
+    ElMessage.success(`地点已删除，重连 ${relinkedCount} 条路线，删除 ${deletedCount} 条路线`);
+  } catch (error) {
+    ElMessage.error(error.message);
+  } finally {
+    placeDeleteState.loading = false;
   }
 }
 
@@ -1009,6 +1269,41 @@ async function deletePlaceById(placeId) {
   }
 }
 
+async function goToPlace(place) {
+  try {
+    if (!activeMapRef.value?.convertToBaiduPoint) {
+      throw new Error('地图组件尚未加载完成');
+    }
+    await navigateToPlace(place, {
+      geolocation: navigator.geolocation,
+      convertToBaiduPoint: activeMapRef.value.convertToBaiduPoint,
+      openWindow: (url) => window.open(url, '_blank', 'noopener,noreferrer')
+    });
+  } catch (error) {
+    try {
+      await ElMessageBox.confirm(
+        `${error.message || '无法获取当前位置'}，是否交由百度地图定位？`,
+        '无法获取当前位置',
+        {
+          confirmButtonText: '交由百度地图定位',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }
+      );
+      window.open(buildBaiduSelfLocateDrivingUrl(place), '_blank', 'noopener,noreferrer');
+    } catch (action) {
+      if (action !== 'cancel' && action !== 'close') {
+        ElMessage.error(action.message || '导航失败');
+      }
+    }
+  }
+}
+
+async function goToPlaceById(placeId) {
+  const place = places.value.find((item) => Number(item.id) === Number(placeId));
+  if (place) await goToPlace(place);
+}
+
 async function searchBaiduPlaces() {
   if (!searchKeyword.value.trim()) {
     ElMessage.warning('请输入搜索关键词');
@@ -1017,10 +1312,10 @@ async function searchBaiduPlaces() {
 
   loading.search = true;
   try {
-    if (!mapRef.value) {
+    if (!activeMapRef.value) {
       throw new Error('地图组件尚未加载完成');
     }
-    searchResults.value = await mapRef.value.searchPlaces(searchKeyword.value);
+    searchResults.value = await activeMapRef.value.searchPlaces(searchKeyword.value);
     if (isMobileViewport.value) {
       mobileOverlay.value = 'search-results';
     }
@@ -1149,7 +1444,7 @@ async function autoGenerateRoutes() {
 
 async function deleteRoute(route) {
   try {
-    await ElMessageBox.confirm(`确定删除「${route.from_place_name} → ${route.to_place_name}」吗？`, '删除路线', {
+    await ElMessageBox.confirm(`确定删除路线「${route.name || '未命名路线'}」吗？`, '删除路线', {
       type: 'warning'
     });
     await routeApi.remove(route.id);
@@ -1163,6 +1458,13 @@ async function deleteRoute(route) {
       ElMessage.error(error.message || '删除已取消');
     }
   }
+}
+
+function selectRouteById(routeId) {
+  const route = routes.value.find((item) => Number(item.id) === Number(routeId));
+  if (!route) return;
+  if (isMobileViewport.value) selectRoute(route);
+  else startEditRoute(route);
 }
 
 async function deleteRouteById(routeId) {
@@ -1201,9 +1503,8 @@ function bindMapInfoWindowActions() {
       }
     },
     deletePlace: deletePlaceById,
-    navigateFromPlace,
-    navigateRoute,
-    deleteRoute: deleteRouteById
+    goToPlace: goToPlaceById,
+    editRoute: selectRouteById
   };
 }
 

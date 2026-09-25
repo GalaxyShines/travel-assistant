@@ -139,7 +139,7 @@ function buildPlaceInfoHtml(place) {
       </dl>
       <div class="map-info-actions">
         <button onclick="window.travelMapActions?.editPlace(${Number(place.id)})">编辑</button>
-        <button onclick="window.travelMapActions?.navigateToPlace(${Number(place.id)})">去这里</button>
+        <button onclick="window.travelMapActions?.goToPlace(${Number(place.id)})">去这里</button>
         <button class="danger" onclick="window.travelMapActions?.deletePlace(${Number(place.id)})">删除</button>
       </div>
     </div>
