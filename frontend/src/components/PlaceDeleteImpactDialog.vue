@@ -11,7 +11,7 @@
       <h4>自动重连</h4>
       <ul>
         <li v-for="route in relinkedRoutes" :key="route.routeId">
-          删除该地点后，路线「{{ route.name }}」中相邻的两处地点将自动连线。{{ occurrenceCopy(route) }}
+          删除该地点后相邻的两处地点将自动连线。受影响路线：「{{ route.name }}」。{{ occurrenceCopy(route) }}
         </li>
       </ul>
     </section>
@@ -20,7 +20,7 @@
       <ul>
         <li v-for="route in deletedRoutes" :key="route.routeId">
           {{ route.reason === 'only-two-stops'
-            ? `路线「${route.name}」仅有 2 个地点，删除该地点会导致路线被删除。`
+            ? `该路线仅有2个地点，删除该地点会导致路线被删除。受影响路线：「${route.name}」。`
             : `删除并合并相邻重复地点后，路线「${route.name}」将不足 2 个地点，会导致路线被删除。` }}{{ occurrenceCopy(route) }}
         </li>
       </ul>

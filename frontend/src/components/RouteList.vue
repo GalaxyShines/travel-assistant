@@ -1,7 +1,7 @@
 <template>
   <section class="route-list" :class="{ compact }" aria-label="路线列表">
     <div class="route-list-toolbar">
-      <el-button type="primary" @click="emit('create')">创建路线</el-button>
+      <el-button v-if="!compact" type="primary" @click="emit('create')">创建路线</el-button>
       <div>
         <el-button size="small" @click="emit('show-all')">全部显示</el-button>
         <el-button size="small" @click="emit('hide-all')">全部隐藏</el-button>

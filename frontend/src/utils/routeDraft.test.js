@@ -142,6 +142,23 @@ test('new route payload omits an absent version', async () => {
   });
 });
 
+test('draft dirty state compares editable route fields against a stable snapshot', async () => {
+  const {
+    createRouteDraft,
+    isRouteDraftDirty,
+    routeDraftFingerprint
+  } = await import('./routeDraft.js');
+  const draft = createRouteDraft(2);
+  const snapshot = routeDraftFingerprint(draft);
+
+  assert.equal(isRouteDraftDirty(draft, snapshot), false);
+  draft.placeIds = [1, 2];
+  assert.equal(isRouteDraftDirty(draft, snapshot), true);
+  draft.placeIds = [];
+  draft.name = '第一天';
+  assert.equal(isRouteDraftDirty(draft, snapshot), true);
+});
+
 function createDraftFixture() {
   return {
     id: null,

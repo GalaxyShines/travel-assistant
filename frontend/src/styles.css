@@ -1067,10 +1067,6 @@ textarea {
     margin-bottom: 14px;
   }
 
-  .mobile-route-mode {
-    margin-top: 16px;
-  }
-
   .mobile-detail h2 {
     margin: 0;
     font-size: 20px;
@@ -1130,6 +1126,173 @@ textarea {
 
   .mobile-bottom-nav .el-icon {
     font-size: 20px;
+  }
+
+  .mobile-list-page > .route-list .route-list-toolbar {
+    justify-content: flex-end;
+  }
+
+  .mobile-list-page > .route-list .route-list-card {
+    margin-bottom: 0;
+  }
+
+  .mobile-place-actions .el-button {
+    min-height: 36px;
+    margin: 0;
+  }
+
+  .mobile-route-editor-drawer .el-drawer__body {
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .mobile-route-editor-shell {
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .mobile-route-editor-content {
+    min-height: 0;
+    overflow: auto;
+    padding: 14px 14px 24px;
+  }
+
+  .mobile-route-editor-content .route-place-selector {
+    align-content: start;
+  }
+
+  .mobile-route-editor-footer {
+    position: relative;
+    z-index: 2;
+    padding: 0 14px max(12px, env(safe-area-inset-bottom));
+    border-top: 1px solid #d9e2df;
+    background: #ffffff;
+    box-shadow: 0 -6px 18px rgba(24, 33, 47, 0.08);
+  }
+
+  .mobile-route-sequence-toggle {
+    width: 100%;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #0f766e;
+    font-weight: 700;
+  }
+
+  .mobile-route-sequence-panel {
+    max-height: min(42dvh, 340px);
+    overflow: auto;
+    padding: 0 2px 10px;
+  }
+
+  .mobile-route-editor-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-route-editor-actions:only-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-top: 12px;
+  }
+
+  .mobile-route-editor-actions .el-button {
+    min-height: 44px;
+    margin: 0;
+  }
+
+  .mobile-route-filter-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .mobile-route-filter-actions .el-button {
+    min-height: 44px;
+    margin: 0;
+  }
+
+  .mobile-route-filter-list {
+    display: grid;
+    gap: 8px;
+    max-height: 48dvh;
+    overflow: auto;
+  }
+
+  .mobile-route-filter-row {
+    min-height: 48px;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: 1px solid #e2e8e6;
+    border-radius: 9px;
+  }
+
+  .mobile-route-filter-name {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-route-detail-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-route-detail-heading h2,
+  .mobile-route-detail-heading span {
+    margin: 0;
+  }
+
+  .mobile-route-detail-heading > div > span {
+    color: #667085;
+    font-size: 12px;
+  }
+
+  .mobile-route-detail-stops {
+    display: grid;
+    gap: 8px;
+    max-height: 42dvh;
+    margin: 16px 0 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+  }
+
+  .mobile-route-detail-stops li {
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 9px;
+    background: #f4f7f6;
+  }
+
+  .mobile-route-detail-stops li > span {
+    inline-size: 26px;
+    block-size: 26px;
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--route-color);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 800;
   }
 
   .el-drawer__body {

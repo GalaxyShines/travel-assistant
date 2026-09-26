@@ -18,7 +18,9 @@
         active-text="显示小标题"
         @update:model-value="$emit('update:showPlaceLabels', $event)"
       />
-      <el-switch :model-value="showRoutes" active-text="显示路线" @update:model-value="$emit('update:showRoutes', $event)" />
+      <el-button size="small" @click="$emit('open-route-filter')">
+        路线 {{ visibleRouteCount }}/{{ routeCount }}
+      </el-button>
     </div>
 
     <div class="mobile-map-mode-actions">
@@ -30,38 +32,29 @@
       >
         {{ interactionMode === 'place-pick' ? '取消选点' : '地图选点' }}
       </el-button>
-      <el-button
-        :type="interactionMode === 'route-pick' ? 'primary' : 'default'"
-        :icon="Connection"
-        :disabled="!hasTrip || !mapAvailable || placeCount < 2"
-        @click="$emit('toggle-route-pick')"
-      >
-        {{ interactionMode === 'route-pick' ? '取消连线' : '选点连线' }}
-      </el-button>
     </div>
   </section>
 </template>
 
 <script setup>
-import { Aim, Connection, Search } from '@element-plus/icons-vue';
+import { Aim, Search } from '@element-plus/icons-vue';
 
 defineProps({
   searchKeyword: { type: String, default: '' },
   showPlaceLabels: { type: Boolean, default: true },
-  showRoutes: { type: Boolean, default: true },
   interactionMode: { type: String, default: 'browse' },
   mapAvailable: { type: Boolean, default: false },
   hasTrip: { type: Boolean, default: false },
-  placeCount: { type: Number, default: 0 },
+  routeCount: { type: Number, default: 0 },
+  visibleRouteCount: { type: Number, default: 0 },
   loadingSearch: { type: Boolean, default: false }
 });
 
 defineEmits([
   'update:searchKeyword',
   'update:showPlaceLabels',
-  'update:showRoutes',
   'search',
   'toggle-place-pick',
-  'toggle-route-pick'
+  'open-route-filter'
 ]);
 </script>

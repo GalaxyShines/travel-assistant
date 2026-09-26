@@ -76,27 +76,3 @@ export async function navigateToPlace(place, dependencies = {}) {
   openWindow(url);
   return url;
 }
-
-// Temporary compatibility for the pre-migration route UI; removed when App.vue switches to route aggregates.
-export const travelModeOptions = [
-  { label: '驾车', value: 'driving' },
-  { label: '步行', value: 'walking' },
-  { label: '公交', value: 'transit' },
-  { label: '骑行', value: 'riding' }
-];
-
-export function getTravelModeLabel(mode) {
-  return travelModeOptions.find((item) => item.value === mode)?.label || '驾车';
-}
-
-export function buildBaiduNavigationUrl(fromPlace, toPlace) {
-  return buildBaiduDrivingUrl(fromPlace, toPlace);
-}
-
-export function openBaiduNavigation(fromPlace, toPlace) {
-  globalThis.window?.open(
-    buildBaiduDrivingUrl(fromPlace, toPlace),
-    '_blank',
-    'noopener,noreferrer'
-  );
-}

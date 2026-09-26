@@ -132,3 +132,18 @@ export function routeDraftPayload(draft) {
 
   return payload;
 }
+
+export function routeDraftFingerprint(draft) {
+  return JSON.stringify({
+    id: draft.id === null || draft.id === undefined ? null : Number(draft.id),
+    name: String(draft.name || ''),
+    color: String(draft.color || '#D97706').toUpperCase(),
+    placeIds: (draft.placeIds || []).map(Number),
+    orderIndex: Number(draft.orderIndex) || 0,
+    version: draft.version === null || draft.version === undefined ? null : Number(draft.version)
+  });
+}
+
+export function isRouteDraftDirty(draft, initialFingerprint) {
+  return routeDraftFingerprint(draft) !== initialFingerprint;
+}

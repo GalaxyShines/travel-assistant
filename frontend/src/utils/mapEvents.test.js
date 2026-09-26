@@ -38,5 +38,4 @@ test('only deliberate map point mode accepts background map clicks', async () =>
 
   assert.equal(shouldHandleMapBackgroundClick('place-pick'), true);
   assert.equal(shouldHandleMapBackgroundClick('browse'), false);
-  assert.equal(shouldHandleMapBackgroundClick('route-pick'), false);
 });
