@@ -59,15 +59,16 @@ test('legacy ordered segments are combined into one ordered place sequence', () 
   );
 });
 
-test('legacy conversion reports the two segments at a disconnected boundary', () => {
+test('legacy conversion bridges disconnected segments and preserves a return stop', () => {
   const { buildLegacyPlaceSequence } = require('./routeModel');
 
-  assert.throws(
-    () => buildLegacyPlaceSequence([
+  assert.deepEqual(
+    buildLegacyPlaceSequence([
       { id: 8, start_place_id: 1, end_place_id: 2 },
-      { id: 9, start_place_id: 4, end_place_id: 5 }
+      { id: 9, start_place_id: 3, end_place_id: 2 },
+      { id: 10, start_place_id: 2, end_place_id: 4 }
     ]),
-    /8.*9|9.*8/
+    [1, 2, 3, 2, 4]
   );
 });
 

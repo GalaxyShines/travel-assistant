@@ -90,21 +90,24 @@ test('legacy columns with existing route_stops are resumable', async () => {
   assert.equal(state.kind, 'legacy');
 });
 
-test('disconnected legacy data is rejected before destructive writes', async () => {
+test('disconnected legacy data is bridged in order during migration', async () => {
   const connection = fakeInformationSchema({
     routeColumns: ['id', 'trip_id', 'from_place_id', 'to_place_id', 'travel_mode', 'order_index'],
     routeStopsExists: true,
     segments: [
       { id: 8, trip_id: 3, from_place_id: 1, to_place_id: 2, order_index: 0 },
-      { id: 9, trip_id: 3, from_place_id: 7, to_place_id: 8, order_index: 1 }
+      { id: 9, trip_id: 3, from_place_id: 7, to_place_id: 2, order_index: 4 },
+      { id: 10, trip_id: 3, from_place_id: 2, to_place_id: 8, order_index: 7 }
     ]
   });
 
-  await assert.rejects(
-    migration.migrateLegacyRoutes(connection, 'travel_helper'),
-    /计划 3.*8.*9|计划 3.*9.*8/
+  await migration.migrateLegacyRoutes(connection, 'travel_helper');
+
+  assert.equal(
+    connection.writeStatements.filter((sql) => /^INSERT INTO .*route_stops/i.test(sql)).length,
+    5
   );
-  assert.deepEqual(connection.writeStatements, []);
+  assert.deepEqual(connection.transactionEvents, ['begin', 'commit']);
 });
 
 test('migration resumes after data phase with one final alter and marker write', async () => {

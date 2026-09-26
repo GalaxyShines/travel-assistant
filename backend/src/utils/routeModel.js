@@ -64,13 +64,12 @@ function buildLegacyPlaceSequence(segments) {
   const placeIds = [first.start, first.end];
 
   for (let index = 1; index < segments.length; index += 1) {
-    const previous = segments[index - 1];
     const current = segments[index];
     const endpoints = segmentEndpoints(current);
     const expectedStart = placeIds[placeIds.length - 1];
 
     if (endpoints.start !== expectedStart) {
-      throw new Error(`旧路线线段 ${previous.id} 与 ${current.id} 无法连接`);
+      placeIds.push(endpoints.start);
     }
     placeIds.push(endpoints.end);
   }
