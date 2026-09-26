@@ -92,7 +92,8 @@ async function createLegacyDatabase(name, { disconnected = false } = {}) {
     await connection.query(`
       INSERT INTO routes (id, trip_id, from_place_id, to_place_id, order_index) VALUES
         (301, 1, 101, 102, 0),
-        (302, 1, 103, 104, 1)
+        (302, 1, 103, 102, 4),
+        (303, 1, 102, 104, 7)
     `);
   } else {
     await connection.query(`
@@ -181,27 +182,30 @@ integrationTest('SQL migration converts an ordered legacy route once and preserv
   }
 });
 
-integrationTest('SQL migration rejects a disconnected legacy route before changing the routes table', async () => {
+integrationTest('SQL migration bridges disconnected segments in order and preserves the return stop', async () => {
   const name = databaseName('disconnected');
   await createLegacyDatabase(name, { disconnected: true });
   try {
     const result = await runMigration(name);
-    assert.notEqual(result.code, 0);
-    assert.match(result.stderr, /旧路线迁移预检失败/);
+    assert.equal(result.code, 0, result.stderr);
 
     const connection = await mysql.createConnection(connectionOptions({ database: name }));
-    const [[counts]] = await connection.query(
-      'SELECT COUNT(*) route_count, SUM(from_place_id IS NOT NULL) legacy_row_count FROM routes'
+    const [routes] = await connection.query(
+      'SELECT id, name, color, version FROM routes ORDER BY id'
     );
-    const [aggregateColumns] = await connection.query(`
-      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
-      WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'routes'
-        AND COLUMN_NAME IN ('name', 'color', 'version')
-    `, [name]);
+    const [stops] = await connection.query(
+      'SELECT route_id, place_id, stop_index FROM route_stops ORDER BY route_id, stop_index'
+    );
     await connection.end();
 
-    assert.deepEqual(counts, { route_count: 2, legacy_row_count: '2' });
-    assert.deepEqual(aggregateColumns, []);
+    assert.deepEqual(routes, [{ id: 301, name: '计划路线', color: '#D97706', version: 1 }]);
+    assert.deepEqual(stops, [
+      { route_id: 301, place_id: 101, stop_index: 1 },
+      { route_id: 301, place_id: 102, stop_index: 2 },
+      { route_id: 301, place_id: 103, stop_index: 3 },
+      { route_id: 301, place_id: 102, stop_index: 4 },
+      { route_id: 301, place_id: 104, stop_index: 5 }
+    ]);
   } finally {
     await dropDatabase(name);
   }

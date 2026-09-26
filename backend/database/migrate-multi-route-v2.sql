@@ -5,8 +5,8 @@
 --   2. 先执行 USE `实际数据库名`; 再导入本文件。
 --   3. 不要使用 mysql 客户端的 --force 参数；任何报错都应立即停止迁移。
 --
--- 本脚本可重复执行。旧路线必须能按 order_index、id 连接成一条连续路线；
--- 若存在断裂、自环或跨计划地点，脚本会在修改 routes 表前中止。
+-- 本脚本可重复执行。旧路线按 order_index、id 合并为一条路线；相邻旧线段
+-- 不连续时会自动插入下一段起点作为桥接节点。自环或跨计划地点仍会中止迁移。
 
 SET NAMES utf8mb4;
 
@@ -29,6 +29,22 @@ migration: BEGIN
   DECLARE v_fragment LONGTEXT DEFAULT '';
   DECLARE v_message VARCHAR(128);
   DECLARE v_transaction_started TINYINT DEFAULT 0;
+  DECLARE v_cursor_done TINYINT DEFAULT 0;
+  DECLARE v_segment_id INT UNSIGNED;
+  DECLARE v_segment_trip_id INT UNSIGNED;
+  DECLARE v_segment_from_place_id INT UNSIGNED;
+  DECLARE v_segment_to_place_id INT UNSIGNED;
+  DECLARE v_current_trip_id INT UNSIGNED DEFAULT NULL;
+  DECLARE v_current_route_id INT UNSIGNED DEFAULT NULL;
+  DECLARE v_last_place_id INT UNSIGNED DEFAULT NULL;
+  DECLARE v_stop_index INT UNSIGNED DEFAULT 0;
+
+  DECLARE legacy_route_cursor CURSOR FOR
+    SELECT id, trip_id, from_place_id, to_place_id
+    FROM `routes`
+    ORDER BY trip_id, order_index, id;
+
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET v_cursor_done = 1;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -152,44 +168,6 @@ migration: BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
   END IF;
 
-  -- 当前线段起点必须等于按 order_index、id 排序后的上一线段终点。
-  SELECT GROUP_CONCAT(DISTINCT broken.trip_id ORDER BY broken.trip_id) INTO v_bad_trips
-  FROM (
-    SELECT current_route.trip_id
-    FROM `routes` current_route
-    WHERE EXISTS (
-      SELECT 1
-      FROM `routes` earlier_route
-      WHERE earlier_route.trip_id = current_route.trip_id
-        AND (
-          earlier_route.order_index < current_route.order_index
-          OR (
-            earlier_route.order_index = current_route.order_index
-            AND earlier_route.id < current_route.id
-          )
-        )
-    )
-      AND current_route.from_place_id <> (
-        SELECT previous_route.to_place_id
-        FROM `routes` previous_route
-        WHERE previous_route.trip_id = current_route.trip_id
-          AND (
-            previous_route.order_index < current_route.order_index
-            OR (
-              previous_route.order_index = current_route.order_index
-              AND previous_route.id < current_route.id
-            )
-          )
-        ORDER BY previous_route.order_index DESC, previous_route.id DESC
-        LIMIT 1
-      )
-  ) broken;
-
-  IF v_bad_trips IS NOT NULL THEN
-    SET v_message = CONCAT('旧路线迁移预检失败：路线线段无法连接，计划：', LEFT(v_bad_trips, 64));
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = v_message;
-  END IF;
-
   CREATE TABLE IF NOT EXISTS `route_stops` (
     `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `route_id` INT UNSIGNED NOT NULL,
@@ -259,20 +237,6 @@ migration: BEGIN
       UNIQUE KEY (`route_id`)
     ) ENGINE=InnoDB;
 
-    INSERT INTO `_multi_route_heads` (`trip_id`, `route_id`, `first_place_id`)
-    SELECT route_row.trip_id, route_row.id, route_row.from_place_id
-    FROM `routes` route_row
-    LEFT JOIN `routes` earlier_route
-      ON earlier_route.trip_id = route_row.trip_id
-      AND (
-        earlier_route.order_index < route_row.order_index
-        OR (
-          earlier_route.order_index = route_row.order_index
-          AND earlier_route.id < route_row.id
-        )
-      )
-    WHERE earlier_route.id IS NULL;
-
     CREATE TEMPORARY TABLE `_multi_route_stops` (
       `route_id` INT UNSIGNED NOT NULL,
       `place_id` INT UNSIGNED NOT NULL,
@@ -280,29 +244,49 @@ migration: BEGIN
       PRIMARY KEY (`route_id`, `stop_index`)
     ) ENGINE=InnoDB;
 
-    INSERT INTO `_multi_route_stops` (`route_id`, `place_id`, `stop_index`)
-    SELECT route_id, first_place_id, 1
-    FROM `_multi_route_heads`;
+    SET v_cursor_done = 0;
+    SET v_current_trip_id = NULL;
+    SET v_current_route_id = NULL;
+    SET v_last_place_id = NULL;
+    SET v_stop_index = 0;
 
-    INSERT INTO `_multi_route_stops` (`route_id`, `place_id`, `stop_index`)
-    SELECT
-      route_head.route_id,
-      route_row.to_place_id,
-      2 + (
-        SELECT COUNT(*)
-        FROM `routes` earlier_route
-        WHERE earlier_route.trip_id = route_row.trip_id
-          AND (
-            earlier_route.order_index < route_row.order_index
-            OR (
-              earlier_route.order_index = route_row.order_index
-              AND earlier_route.id < route_row.id
-            )
-          )
-      ) AS stop_index
-    FROM `routes` route_row
-    INNER JOIN `_multi_route_heads` route_head
-      ON route_head.trip_id = route_row.trip_id;
+    OPEN legacy_route_cursor;
+    route_loop: LOOP
+      FETCH legacy_route_cursor INTO
+        v_segment_id,
+        v_segment_trip_id,
+        v_segment_from_place_id,
+        v_segment_to_place_id;
+
+      IF v_cursor_done = 1 THEN
+        LEAVE route_loop;
+      END IF;
+
+      IF v_current_trip_id IS NULL OR v_current_trip_id <> v_segment_trip_id THEN
+        SET v_current_trip_id = v_segment_trip_id;
+        SET v_current_route_id = v_segment_id;
+        SET v_stop_index = 1;
+        SET v_last_place_id = v_segment_from_place_id;
+
+        INSERT INTO `_multi_route_heads` (`trip_id`, `route_id`, `first_place_id`)
+        VALUES (v_current_trip_id, v_current_route_id, v_segment_from_place_id);
+
+        INSERT INTO `_multi_route_stops` (`route_id`, `place_id`, `stop_index`)
+        VALUES (v_current_route_id, v_segment_from_place_id, v_stop_index);
+      ELSEIF v_last_place_id <> v_segment_from_place_id THEN
+        -- 旧线段断裂：按原排序先补入下一段起点，再保留该段终点。
+        SET v_stop_index = v_stop_index + 1;
+        SET v_last_place_id = v_segment_from_place_id;
+        INSERT INTO `_multi_route_stops` (`route_id`, `place_id`, `stop_index`)
+        VALUES (v_current_route_id, v_segment_from_place_id, v_stop_index);
+      END IF;
+
+      SET v_stop_index = v_stop_index + 1;
+      SET v_last_place_id = v_segment_to_place_id;
+      INSERT INTO `_multi_route_stops` (`route_id`, `place_id`, `stop_index`)
+      VALUES (v_current_route_id, v_segment_to_place_id, v_stop_index);
+    END LOOP;
+    CLOSE legacy_route_cursor;
 
     START TRANSACTION;
     SET v_transaction_started = 1;
