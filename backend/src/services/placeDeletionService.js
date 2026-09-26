@@ -136,6 +136,10 @@ function createPlaceDeletionService(pool) {
             await connection.execute('DELETE FROM routes WHERE id = ?', [item.routeId]);
             deletedRoutes.push(item);
           } else {
+            await connection.execute(
+              'UPDATE routes SET version = version + 1 WHERE id = ?',
+              [item.routeId]
+            );
             await connection.execute('DELETE FROM route_stops WHERE route_id = ?', [item.routeId]);
             await insertStops(connection, item.routeId, item.remainingPlaceIds);
             relinkedRoutes.push(item);

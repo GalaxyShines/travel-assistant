@@ -87,7 +87,7 @@ function forcedDeletePool({ failOnStopInsert = false } = {}) {
       if (/SELECT r\.id.*FOR UPDATE/s.test(sql)) return [[{ id: 7 }, { id: 8 }, { id: 9 }]];
       if (/SELECT r\.id AS route_id/.test(sql)) return [affectedRows];
       if (/INSERT INTO route_stops/.test(sql) && failOnStopInsert) throw new Error('stop write failed');
-      if (/^(DELETE|INSERT)/.test(sql.trim())) return [{ affectedRows: 1, insertId: 1 }];
+      if (/^(DELETE|INSERT|UPDATE)/.test(sql.trim())) return [{ affectedRows: 1, insertId: 1 }];
       throw new Error(`Unexpected SQL: ${sql}`);
     }
   };
@@ -109,6 +109,13 @@ test('forced deletion relinks valid routes and deletes underflowed routes atomic
     .filter(({ sql }) => /INSERT INTO route_stops/.test(sql))
     .map(({ params }) => params);
   assert.deepEqual(rewrittenStops, [[7, 1, 1], [7, 3, 2], [7, 4, 3]]);
+  assert.equal(
+    connection.calls.some(({ sql, params }) => (
+      /UPDATE routes SET version = version \+ 1 WHERE id = \?/.test(sql)
+      && params[0] === 7
+    )),
+    true
+  );
   assert.deepEqual(connection.events.slice(-2), ['commit', 'release']);
 });
 
