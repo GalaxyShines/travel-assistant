@@ -2,6 +2,8 @@ node_modules/
 dist/
 .env
 .env.local
+.env.development
+.env.production
 *.log
 backend/data/auth-session.json
 .DS_Store

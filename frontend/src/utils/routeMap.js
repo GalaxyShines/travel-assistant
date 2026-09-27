@@ -4,6 +4,19 @@ function sortedStops(route) {
   );
 }
 
+export function createRouteArrowIcons(BMap, arrowShape) {
+  if (!BMap?.IconSequence || !BMap?.Symbol || !arrowShape) return [];
+
+  const symbol = new BMap.Symbol(arrowShape, {
+    scale: 0.6,
+    strokeColor: '#FFFFFF',
+    fillColor: '#FFFFFF',
+    fillOpacity: 1
+  });
+
+  return [new BMap.IconSequence(symbol, '20px', '60px', false)];
+}
+
 export function expandRouteSegments(routes) {
   return routes.flatMap((route) => {
     const stops = sortedStops(route);

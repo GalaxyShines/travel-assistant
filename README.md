@@ -167,19 +167,19 @@ mysql -h 数据库地址 -P 3306 -u 数据库用户 -p --database=实际数据�
 
 地图坐标统一按百度 BD-09 经纬度保存。
 
-## 第五步：后端配置与 .env 示例
+## 第五步：后端配置与环境模式
 
-后端服务的全部配置均从 `backend/.env` 读取。请先复制示例文件：
+后端按运行模式读取环境文件：development 优先读取 `backend/.env.development`，production 优先读取 `backend/.env.production`；对应文件不存在时均回退到 `backend/.env`。本地开发可先复制示例文件：
 
 ```bash
 cd backend
-cp .env.example .env
+cp .env.development.example .env.development
 ```
 
 Windows PowerShell 可使用：
 
 ```powershell
-Copy-Item .env.example .env
+Copy-Item .env.development.example .env.development
 ```
 
 可配置项包括：`APP_NAME`、`BACKEND_PORT`、`CORS_ORIGIN`、`BAIDU_MAP_AK`、`DB_HOST`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME`、`AUTH_PASSWORD` 和 `AUTH_SESSION_FILE`。`AUTH_SESSION_FILE` 为相对路径时，会相对于部署目录中的 `server.js` 解析。
@@ -224,7 +224,7 @@ Copy-Item .env.example .env
 }
 ```
 
-后端 `.env` 的完整示例见 `backend/.env.example`。
+后端配置示例分别见 `backend/.env.development.example` 与 `backend/.env.production.example`；`backend/.env.example` 保留为通用回退模板。真实环境文件不会提交到 Git。
 
 ## 第六步：项目运行方式
 
@@ -245,22 +245,30 @@ cd backend
 pnpm run init-db
 ```
 
-启动后端：
+以 development 模式启动后端：
 
 ```bash
 cd backend
-pnpm run dev
+pnpm run start
 ```
 
-构建并部署后端（服务器只需 `server.js` 和 `.env`）：
+需要热重载时使用 `pnpm run dev`。需要在本机以 production 配置运行源码服务时使用：
+
+```bash
+pnpm run prod
+```
+
+构建并部署后端：
 
 ```bash
 cd backend
 pnpm run build
 
-# 上传 dist/server.js 与按 .env.example 配置好的 .env 到同一目录
+# 上传 dist/server.js，并在同一目录放置 .env.production；也可只放置 .env 作为回退
 node server.js
 ```
+
+构建过程只写入 production 模式标记，不会把数据库密码等环境变量编译进 `server.js`，也不会自动复制真实环境文件。
 
 启动前端：
 

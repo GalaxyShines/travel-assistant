@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import * as routeMap from './routeMap.js';
 import {
   assignSharedSegmentSlots,
   buildPlaceBadges,
@@ -7,6 +8,43 @@ import {
   expandRouteSegments,
   offsetSegmentPixels
 } from './routeMap.js';
+
+test('route arrows are white and repeat every 60 pixels inside the line', () => {
+  assert.equal(typeof routeMap.createRouteArrowIcons, 'function');
+
+  class MapSymbol {
+    constructor(shape, options) {
+      this.shape = shape;
+      this.options = options;
+    }
+  }
+
+  class IconSequence {
+    constructor(symbol, offset, repeat, fixedRotation) {
+      this.symbol = symbol;
+      this.offset = offset;
+      this.repeat = repeat;
+      this.fixedRotation = fixedRotation;
+    }
+  }
+
+  const icons = routeMap.createRouteArrowIcons(
+    { Symbol: MapSymbol, IconSequence },
+    'forward-closed-arrow'
+  );
+
+  assert.equal(icons.length, 1);
+  assert.equal(icons[0].symbol.shape, 'forward-closed-arrow');
+  assert.deepEqual(icons[0].symbol.options, {
+    scale: 0.6,
+    strokeColor: '#FFFFFF',
+    fillColor: '#FFFFFF',
+    fillOpacity: 1
+  });
+  assert.equal(icons[0].offset, '20px');
+  assert.equal(icons[0].repeat, '60px');
+  assert.equal(icons[0].fixedRotation, false);
+});
 
 test('routes expand to directed adjacent segments and repeated-place badges', () => {
   const routes = [{ id: 7, color: '#DC2626', order_index: 0, stops: [

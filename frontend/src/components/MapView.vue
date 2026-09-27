@@ -33,6 +33,7 @@ import {
   assignSharedSegmentSlots,
   buildPlaceBadges,
   contrastTextColor,
+  createRouteArrowIcons,
   expandRouteSegments,
   offsetSegmentPixels
 } from '../utils/routeMap';
@@ -229,23 +230,6 @@ function routeRenderData() {
   return routes;
 }
 
-function createArrow(color) {
-  if (!BMap.IconSequence || !BMap.Symbol || !window.BMap_Symbol_SHAPE_FORWARD_CLOSED_ARROW) {
-    return [];
-  }
-  return [new BMap.IconSequence(
-    new BMap.Symbol(window.BMap_Symbol_SHAPE_FORWARD_CLOSED_ARROW, {
-      scale: 0.7,
-      strokeColor: color,
-      fillColor: color,
-      fillOpacity: 1
-    }),
-    '50%',
-    '0',
-    false
-  )];
-}
-
 function renderRouteLines(routes) {
   const routesById = new Map(routes.map((route) => [Number(route.id), route]));
   const segments = assignSharedSegmentSlots(expandRouteSegments(routes));
@@ -275,7 +259,7 @@ function renderRouteLines(routes) {
       strokeWeight: selected ? 6 : 4,
       strokeOpacity: isDraft ? 0.7 : 0.92,
       strokeStyle: isDraft ? 'dashed' : 'solid',
-      icons: createArrow(color)
+      icons: createRouteArrowIcons(BMap, window.BMap_Symbol_SHAPE_FORWARD_CLOSED_ARROW)
     });
 
     if (!isDraft) {
