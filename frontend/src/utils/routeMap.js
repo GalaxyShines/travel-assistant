@@ -88,9 +88,9 @@ export function buildPlaceBadges(routes) {
     });
   });
   badges.forEach((items) => items.sort((left, right) => (
-    left.routeOrder - right.routeOrder
+    left.number - right.number
+    || left.routeOrder - right.routeOrder
     || left.routeId - right.routeId
-    || left.number - right.number
   )));
   return badges;
 }

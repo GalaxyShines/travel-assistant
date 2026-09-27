@@ -254,9 +254,6 @@
 .map-route-place-label {
   position: absolute;
   z-index: 5;
-  display: grid;
-  justify-items: start;
-  gap: 3px;
   transform: translate(16px, calc(-100% - 8px));
   pointer-events: none;
   white-space: nowrap;
@@ -264,20 +261,23 @@
 
 .map-route-badges {
   display: flex;
+  flex: none;
+  align-items: center;
   gap: 3px;
-  flex-wrap: wrap;
-  max-width: 132px;
+  flex-wrap: nowrap;
 }
 
 .map-route-badge {
-  inline-size: 23px;
-  block-size: 23px;
+  box-sizing: border-box;
+  inline-size: 17px;
+  block-size: 17px;
   display: inline-grid;
+  flex: none;
   place-items: center;
-  border: 2px solid #ffffff;
+  border: 1px solid #ffffff;
   border-radius: 50%;
   box-shadow: 0 2px 7px rgba(24, 33, 47, 0.28);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 800;
   line-height: 1;
 }
@@ -288,15 +288,25 @@
 }
 
 .map-route-place-caption {
+  box-sizing: border-box;
+  min-height: 21px;
   max-width: 160px;
-  overflow: hidden;
-  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  padding: 1px 6px;
   border: 1px solid #bfd8d4;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.95);
   box-shadow: 0 3px 9px rgba(24, 33, 47, 0.12);
   color: #18212f;
   font-size: 12px;
+}
+
+.map-route-place-caption-text {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 

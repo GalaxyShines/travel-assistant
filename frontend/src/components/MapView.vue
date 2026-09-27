@@ -311,21 +311,27 @@ function badgeElement(badge) {
 function addBadgeOverlay(place, badges) {
   const container = document.createElement('div');
   container.className = 'map-route-place-label';
-  const badgeRow = document.createElement('div');
-  badgeRow.className = 'map-route-badges';
-  badges.forEach((badge) => badgeRow.appendChild(badgeElement(badge)));
-  if (badges.length) container.appendChild(badgeRow);
-
   const captions = [];
   if (props.showPlaceLabels && place.subtitle) captions.push(place.subtitle);
   if (Number(place.id) === Number(props.selectedPlaceId)) captions.push('当前');
+
+  if (!captions.length && !badges.length) return;
+
+  const caption = document.createElement('div');
+  caption.className = 'map-route-place-caption';
   if (captions.length) {
-    const caption = document.createElement('span');
-    caption.className = 'map-route-place-caption';
-    caption.textContent = captions.join(' · ');
-    container.appendChild(caption);
+    const captionText = document.createElement('span');
+    captionText.className = 'map-route-place-caption-text';
+    captionText.textContent = captions.join(' · ');
+    caption.appendChild(captionText);
   }
-  if (!container.childNodes.length) return;
+  if (badges.length) {
+    const badgeRow = document.createElement('div');
+    badgeRow.className = 'map-route-badges';
+    badges.forEach((badge) => badgeRow.appendChild(badgeElement(badge)));
+    caption.appendChild(badgeRow);
+  }
+  container.appendChild(caption);
 
   function RouteBadgeOverlay(point, element) {
     this.point = point;

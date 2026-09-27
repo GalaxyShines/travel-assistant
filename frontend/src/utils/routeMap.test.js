@@ -18,6 +18,22 @@ test('routes expand to directed adjacent segments and repeated-place badges', ()
   assert.deepEqual(buildPlaceBadges(routes).get(1).map((item) => item.number), [1, 3]);
 });
 
+test('place badges are ordered by stop number across routes', () => {
+  const routes = [
+    { id: 1, color: '#DC2626', order_index: 0, stops: [
+      { place_id: 10, stop_index: 1 },
+      { place_id: 20, stop_index: 2 },
+      { place_id: 30, stop_index: 3 }
+    ] },
+    { id: 2, color: '#2563EB', order_index: 1, stops: [
+      { place_id: 30, stop_index: 1 },
+      { place_id: 40, stop_index: 2 }
+    ] }
+  ];
+
+  assert.deepEqual(buildPlaceBadges(routes).get(30).map((item) => item.number), [1, 3]);
+});
+
 test('opposite directions share parallel slots but keep opposite vectors', () => {
   const assigned = assignSharedSegmentSlots([
     { routeId: 1, routeOrder: 0, segmentIndex: 0, fromPlaceId: 10, toPlaceId: 20 },
