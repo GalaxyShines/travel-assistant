@@ -97,6 +97,10 @@ export function createRouteDraft(orderIndex = 0) {
   };
 }
 
+export function routeStopName(stop) {
+  return String(stop?.name || '');
+}
+
 export function routeToDraft(route) {
   return {
     id: Number(route.id),

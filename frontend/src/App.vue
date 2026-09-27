@@ -447,7 +447,7 @@
           <ol class="mobile-route-detail-stops">
             <li v-for="(stop, index) in mobileRouteDetail.stops" :key="stop.id || `${stop.place_id}-${index}`">
               <span :style="{ '--route-color': mobileRouteDetail.color }">{{ index + 1 }}</span>
-              <strong>{{ stop.place_name }}</strong>
+              <strong>{{ routeStopName(stop) }}</strong>
             </li>
           </ol>
           <div class="mobile-drawer-actions">
@@ -543,6 +543,7 @@ import {
   removeStopAt,
   routeDraftFingerprint,
   routeDraftPayload,
+  routeStopName,
   routeToDraft,
   undoStops
 } from './utils/routeDraft';

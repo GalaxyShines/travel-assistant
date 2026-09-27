@@ -112,6 +112,12 @@ test('a saved route becomes an editable draft with numeric stop ids', async () =
   });
 });
 
+test('route detail reads the place name from a normalized route stop', async () => {
+  const routeDraft = await import('./routeDraft.js');
+
+  assert.equal(routeDraft.routeStopName?.({ name: '洪崖洞' }), '洪崖洞');
+});
+
 test('route payload contains aggregate fields and server version', async () => {
   const { routeDraftPayload } = await import('./routeDraft.js');
 
