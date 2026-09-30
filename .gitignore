@@ -9,3 +9,4 @@ backend/data/auth-session.json
 .DS_Store
 Thumbs.db
 .playwright-cli
+gitleaks-report.json
